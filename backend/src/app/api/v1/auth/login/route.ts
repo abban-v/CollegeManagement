@@ -4,27 +4,18 @@ import prisma from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { getErrorMessage, successResponse, errorResponse, sendJSON } from "@/lib/api";
 import { createSession } from "@/lib/auth";
+import { checkRateLimit, getLoginRateLimitIdentifier } from "@/lib/middleware/rateLimit";
 
 /**
  * POST /api/v1/auth/login
- * 
+ *
  * Authenticate user and create session
- * 
- * Learning: This is where we verify credentials.
- * 
- * We:
- * 1. Accept email + password
- * 2. Look up user by email
- * 3. Compare password with bcrypt (secure comparison)
- * 4. Create a session token
- * 5. Set HTTP-only cookie
- * 6. Return user info (never password!)
- * 
- * Security notes:
- * - Always hash comparisons (never use ===)
- * - Always use HTTP-only cookies for sessions
- * - Always use Secure + SameSite flags in production
- * - Always log authentication events
+ *
+ * Security:
+ * - Per-email rate limiting (5 attempts per 10 seconds)
+ * - Per-IP rate limiting (10 attempts per 10 seconds)
+ * - Generic error messages to prevent email enumeration
+ * - HTTP-only, Secure, SameSite cookies
  */
 
 const LoginSchema = z.object({
@@ -32,10 +23,24 @@ const LoginSchema = z.object({
   password: z.string().min(1, "Password required"),
 });
 
+// Stricter limits for login attempts
+const LOGIN_RATE_LIMIT = 5; // 5 login attempts per 10 seconds per email+IP
+const LOGIN_RATE_WINDOW = "10 s";
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, password } = LoginSchema.parse(body);
+
+    // Per-email + per-IP rate limiting for login attempts
+    const loginIdentifier = getLoginRateLimitIdentifier(email, request);
+    const loginRateResult = await checkRateLimit(loginIdentifier, LOGIN_RATE_LIMIT, LOGIN_RATE_WINDOW);
+
+    if (!loginRateResult.success) {
+      return sendJSON(
+        errorResponse("Too many login attempts. Please try again later.", 429)
+      );
+    }
 
     // Find user by email
     const user = await prisma.user.findUnique({
@@ -44,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     // User not found: respond generically to prevent email enumeration
     if (!user) {
-      // ⚠️ Don't say "user not found" - attackers use this to enumerate emails
+      // Don't say "user not found" - attackers use this to enumerate emails
       return sendJSON(
         errorResponse("Invalid email or password", 401)
       );

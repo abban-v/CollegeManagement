@@ -3,15 +3,15 @@ import { ModerationStatusEnum } from "@/lib/validation/issue";
 
 const evidenceUrl = z.string().trim().min(1).max(2048);
 
-export const ResolutionEvidenceSchema = z.object({
-  storageKey: z.string().trim().min(1).max(2048),
-  mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
-  fileSize: z.number().int().positive().max(5 * 1024 * 1024),
-});
-
+/**
+ * Evidence is now submitted via upload references (uploadIds)
+ * instead of client-provided storage keys and URLs.
+ * The backend verifies each upload reference exists in GCS,
+ * belongs to the authenticated user, and hasn't been consumed.
+ */
 export const SubmitResolutionSchema = z.object({
   description: z.string().trim().min(10).max(3000),
-  evidenceImages: z.array(ResolutionEvidenceSchema).min(1).max(5),
+  uploadIds: z.array(z.string().uuid()).min(1).max(5),
 });
 
 export type SubmitResolutionInput = z.infer<typeof SubmitResolutionSchema>;

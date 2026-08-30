@@ -9,16 +9,17 @@ import type {
   SubmitResolutionInput,
 } from "@/lib/validation/workflows";
 import { analyzeIssue, findDuplicateCandidates } from "@/modules/ai/analyzer";
+import { fileExists } from "@/lib/storage";
 
 /**
  * IssueService handles all business logic for issues.
- * 
+ *
  * This service:
  * - Encapsulates issue lifecycle management
  * - Handles status transitions with validation
  * - Creates audit logs for important changes
  * - Manages relationships (comments, followers, resolutions)
- * 
+ *
  * The API routes will call these methods rather than directly manipulating the database.
  * This keeps business logic centralized and testable.
  */
@@ -26,54 +27,47 @@ import { analyzeIssue, findDuplicateCandidates } from "@/modules/ai/analyzer";
 export class IssueService {
   /**
    * Create a new issue
-   * 
-   * Learning: This method demonstrates:
-   * - Input validation (done at the API layer, but the service can re-validate)
-   * - Creating a related record (IssueStatusHistory)
-   * - Atomic operations (both are created together)
+   *
+   * The issue is created first with a PENDING AI analysis status.
+   * AI analysis runs after the issue is committed, so failures
+   * do not prevent issue creation.
    */
   async createIssue(
     input: CreateIssueInput,
     reporterId: string
   ) {
-    const recentIssues = await prisma.issue.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      select: { id: true, title: true, description: true },
-    });
-    const duplicateCandidates = findDuplicateCandidates(input, recentIssues);
-    const analysis = await analyzeIssue(input, duplicateCandidates);
-
-    return await prisma.$transaction(async (tx) => {
-      // Create the issue
+    // Create the issue first with a default category, so the issue exists
+    // even if AI analysis fails. AI analysis runs after issue creation.
+    const issue = await prisma.$transaction(async (tx) => {
       const issue = await tx.issue.create({
         data: {
           title: input.title,
           description: input.description,
-          category: analysis.category,
-          department: analysis.suggestedDepartment,
+          category: input.category || "UNCATEGORIZED",
+          department: input.department,
           location: input.location,
           suspectedCause: input.suspectedCause,
           proposedSolution: input.proposedSolution,
           reporterId,
-          priority: analysis.aiPriority,
-          moderationStatus: analysis.moderationFlags.length > 0 ? ModerationStatus.FLAGGED : ModerationStatus.NORMAL,
+          priority: IssuePriority.MEDIUM,
+          moderationStatus: ModerationStatus.NORMAL,
           status: IssueStatus.REPORTED,
         },
       });
 
+      // Create a PENDING analysis record
       await tx.aIAnalysis.create({
         data: {
           issueId: issue.id,
-          category: analysis.category,
-          suggestedDepartment: analysis.suggestedDepartment,
-          aiPriority: analysis.aiPriority,
-          severity: analysis.severity,
-          spamScore: analysis.spamScore,
-          toxicityScore: analysis.toxicityScore,
-          moderationFlags: analysis.moderationFlags,
-          confidence: analysis.confidence,
-          duplicateCandidates: analysis.duplicateCandidates.map((candidate) => JSON.stringify(candidate)),
+          category: input.category || "UNCATEGORIZED",
+          aiPriority: IssuePriority.MEDIUM,
+          severity: "MEDIUM",
+          spamScore: 0,
+          toxicityScore: 0,
+          moderationFlags: [],
+          confidence: 0,
+          duplicateCandidates: [],
+          analysisStatus: "PENDING",
         },
       });
 
@@ -93,7 +87,7 @@ export class IssueService {
           issueId: issue.id,
           action: "CREATE",
           actor: reporterId,
-          details: JSON.stringify({ analysis }),
+          details: JSON.stringify({ title: input.title }),
         },
       });
 
@@ -107,10 +101,94 @@ export class IssueService {
 
       return issue;
     });
+
+    // Run AI analysis asynchronously (after issue is created).
+    // If this fails, the issue still exists with PENDING analysis.
+    // In a serverless environment, we cannot reliably run background
+    // workers, so we run it in the same request but after the issue
+    // is committed. This ensures the issue is never lost.
+    this.runAnalysisAsync(issue.id, input).catch((error) => {
+      console.error("Async AI analysis failed:", error);
+    });
+
+    return issue;
+  }
+
+  /**
+   * Run AI analysis for an issue and update the analysis record.
+   * This is called after issue creation so failures don't block the user.
+   */
+  private async runAnalysisAsync(issueId: string, input: CreateIssueInput) {
+    const recentIssues = await prisma.issue.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: { id: true, title: true, description: true },
+    });
+    const duplicateCandidates = findDuplicateCandidates(input, recentIssues);
+
+    try {
+      const analysis = await analyzeIssue(input, duplicateCandidates);
+
+      await prisma.$transaction(async (tx) => {
+        await tx.aIAnalysis.update({
+          where: { issueId },
+          data: {
+            category: analysis.category,
+            suggestedDepartment: analysis.suggestedDepartment,
+            aiPriority: analysis.aiPriority,
+            severity: analysis.severity,
+            spamScore: analysis.spamScore,
+            toxicityScore: analysis.toxicityScore,
+            moderationFlags: analysis.moderationFlags,
+            confidence: analysis.confidence,
+            duplicateCandidates: analysis.duplicateCandidates.map((candidate) => JSON.stringify(candidate)),
+            analysisStatus: "COMPLETED",
+            modelUsed: analysis.modelUsed,
+            reasoning: analysis.reasoning,
+          },
+        });
+
+        // Update issue priority and moderation status based on analysis
+        await tx.issue.update({
+          where: { id: issueId },
+          data: {
+            priority: analysis.aiPriority,
+            moderationStatus: analysis.moderationFlags.length > 0 ? ModerationStatus.FLAGGED : ModerationStatus.NORMAL,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            issueId,
+            action: "AI_ANALYSIS_COMPLETED",
+            actor: "SYSTEM",
+            details: JSON.stringify({
+              category: analysis.category,
+              priority: analysis.aiPriority,
+              spamScore: analysis.spamScore,
+              toxicityScore: analysis.toxicityScore,
+              confidence: analysis.confidence,
+            }),
+          },
+        });
+      });
+    } catch (error) {
+      await prisma.aIAnalysis.update({
+        where: { issueId },
+        data: {
+          analysisStatus: "FAILED",
+          reasoning: error instanceof Error ? error.message : "Analysis failed",
+        },
+      });
+      throw error;
+    }
   }
 
   /**
    * Get issue by ID
+   *
+   * Returns issue data with related records.
+   * Email addresses are excluded from public-facing fields.
    */
   async getIssueById(id: string) {
     return await prisma.issue.findUnique({
@@ -119,7 +197,6 @@ export class IssueService {
         reporter: {
           select: {
             id: true,
-            email: true,
             name: true,
           },
         },
@@ -135,7 +212,6 @@ export class IssueService {
             author: {
               select: {
                 id: true,
-                email: true,
                 name: true,
               },
             },
@@ -150,7 +226,6 @@ export class IssueService {
             user: {
               select: {
                 id: true,
-                email: true,
                 name: true,
               },
             },
@@ -163,7 +238,6 @@ export class IssueService {
             resolvedBy: {
               select: {
                 id: true,
-                email: true,
                 name: true,
               },
             },
@@ -175,6 +249,8 @@ export class IssueService {
 
   /**
    * List issues with pagination and filtering
+   *
+   * Email addresses are excluded from public-facing fields.
    */
   async listIssues(options: {
     skip?: number;
@@ -200,7 +276,6 @@ export class IssueService {
           reporter: {
             select: {
               id: true,
-              email: true,
               name: true,
             },
           },
@@ -254,15 +329,8 @@ export class IssueService {
 
   /**
    * Transition issue status with validation
-   * 
-   * Learning: This is a state machine.
-   * 
-   * Why state machines matter:
-   * - They prevent invalid state transitions
-   * - They document the lifecycle clearly
-   * - They make testing easier
-   * - They prevent bugs like "closed issue reopened" happening unexpectedly
-   * 
+   *
+   * This is a state machine.
    * The rules define what transitions are allowed.
    */
   async transitionStatus(
@@ -327,7 +395,7 @@ export class IssueService {
 
   /**
    * Check if a status transition is valid
-   * 
+   *
    * This is the state machine definition.
    * Update this method when the lifecycle changes.
    */
@@ -394,7 +462,6 @@ export class IssueService {
           author: {
             select: {
               id: true,
-              email: true,
               name: true,
             },
           },
@@ -518,6 +585,17 @@ export class IssueService {
     });
   }
 
+  /**
+   * Submit a resolution for an issue.
+   *
+   * Security: Evidence is referenced by upload IDs that were previously
+   * uploaded via the /api/v1/upload endpoint. The backend verifies:
+   * 1. Each upload reference exists in the database
+   * 2. The upload belongs to the authenticated user
+   * 3. The upload has not already been consumed
+   * 4. The file actually exists in GCS
+   * 5. The upload is marked as consumed after use
+   */
   async submitResolution(issueId: string, resolvedById: string, input: SubmitResolutionInput) {
     const issue = await prisma.issue.findUniqueOrThrow({ where: { id: issueId } });
 
@@ -526,13 +604,44 @@ export class IssueService {
     }
 
     return await prisma.$transaction(async (tx) => {
+      // Atomically claim upload references: verify they exist, belong to the
+      // authenticated user, and are unconsumed — all within the transaction.
+      // This prevents the TOCTOU race condition where two concurrent requests
+      // could both see the same upload as unconsumed.
+      const uploadRefs = await tx.uploadReference.findMany({
+        where: {
+          id: { in: input.uploadIds },
+          userId: resolvedById,
+          consumed: false,
+        },
+      });
+
+      if (uploadRefs.length !== input.uploadIds.length) {
+        throw new Error("One or more upload references are invalid, do not belong to you, or have already been used");
+      }
+
+      // Verify each file actually exists in GCS
+      for (const ref of uploadRefs) {
+        const exists = await fileExists(ref.storageKey);
+        if (!exists) {
+          throw new Error(`Evidence file not found in storage: ${ref.storageKey}`);
+        }
+      }
+
+      // Create evidence records from verified upload references
+      const evidenceData = uploadRefs.map((ref) => ({
+        storageKey: ref.storageKey,
+        mimeType: ref.mimeType,
+        fileSize: ref.fileSize,
+      }));
+
       const resolution = await tx.issueResolution.create({
         data: {
           issueId,
           resolvedById,
           description: input.description,
           evidenceImages: {
-            create: input.evidenceImages,
+            create: evidenceData,
           },
         },
         include: {
@@ -540,12 +649,32 @@ export class IssueService {
           resolvedBy: {
             select: {
               id: true,
-              email: true,
               name: true,
             },
           },
         },
       });
+
+      // Atomically consume uploads: the update condition includes consumed: false
+      // so that if another transaction already consumed them, this update
+      // affects zero rows and we can detect the conflict.
+      const consumeResult = await tx.uploadReference.updateMany({
+        where: {
+          id: { in: input.uploadIds },
+          userId: resolvedById,
+          consumed: false,
+        },
+        data: {
+          consumed: true,
+          consumedAt: new Date(),
+        },
+      });
+
+      // If not all uploads were consumed, another concurrent transaction
+      // beat us to it. Fail the transaction to prevent duplicate resolutions.
+      if (consumeResult.count !== input.uploadIds.length) {
+        throw new Error("Concurrent resolution submission detected: some uploads were already consumed");
+      }
 
       const updated = await tx.issue.update({
         where: { id: issueId },
@@ -566,7 +695,7 @@ export class IssueService {
           issueId,
           action: "RESOLUTION_SUBMITTED",
           actor: resolvedById,
-          details: JSON.stringify({ resolutionId: resolution.id }),
+          details: JSON.stringify({ resolutionId: resolution.id, evidenceCount: evidenceData.length }),
         },
       });
 
@@ -580,6 +709,7 @@ export class IssueService {
       return { issue: updated, resolution };
     });
   }
+
 
   async disputeResolution(issueId: string, userId: string, input: DisputeResolutionInput) {
     const issue = await prisma.issue.findUniqueOrThrow({
@@ -718,7 +848,7 @@ export class IssueService {
     return prisma.issueReport.findMany({
       orderBy: { createdAt: "desc" },
       include: {
-        reporter: { select: { id: true, email: true, name: true, role: true } },
+        reporter: { select: { id: true, name: true, role: true } },
         issue: true,
       },
     });

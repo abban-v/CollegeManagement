@@ -1,4 +1,5 @@
 import { IssuePriority, type Issue } from "@prisma/client";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export type DuplicateCandidate = {
   issueId: string;
@@ -125,115 +126,74 @@ function clampScore(value: unknown, fallback: number) {
   return Math.min(1, Math.max(0, value));
 }
 
-function extractResponseText(payload: unknown) {
-  if (!payload || typeof payload !== "object") return null;
-
-  const response = payload as { output_text?: unknown; output?: unknown };
-  if (typeof response.output_text === "string") {
-    return response.output_text;
-  }
-
-  if (!Array.isArray(response.output)) {
-    return null;
-  }
-
-  for (const item of response.output) {
-    if (!item || typeof item !== "object") continue;
-    const content = (item as { content?: unknown }).content;
-    if (!Array.isArray(content)) continue;
-
-    for (const part of content) {
-      if (!part || typeof part !== "object") continue;
-      const text = (part as { text?: unknown }).text;
-      if (typeof text === "string") {
-        return text;
-      }
-    }
-  }
-
-  return null;
-}
-
-function extractJsonObject(text: string) {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-
-  if (start === -1 || end === -1 || end <= start) {
-    throw new Error("Grok response did not contain JSON");
-  }
-
-  return JSON.parse(text.slice(start, end + 1)) as Record<string, unknown>;
-}
-
-async function analyzeIssueWithGrok(
+async function analyzeIssueWithGemini(
   input: IssueAnalysisInput,
   duplicateCandidates: DuplicateCandidate[],
   fallback: IssueAnalysisResult
 ): Promise<IssueAnalysisResult> {
-  const apiKey = process.env.XAI_API_KEY;
-  if (!apiKey || apiKey === "your_xai_api_key_here") {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === "your_gemini_api_key_here") {
     return fallback;
   }
 
-  const baseUrl = process.env.XAI_API_BASE_URL || "https://api.x.ai/v1";
-  const model = process.env.XAI_MODEL || "grok-4.6";
-  const response = await fetch(`${baseUrl}/responses`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      input: [
-        {
-          role: "system",
-          content:
-            "Classify campus maintenance issues. Return only compact JSON with keys category, suggestedDepartment, priority, severity, confidence, spamScore, toxicityScore, moderationFlags, reasoning.",
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            title: input.title,
-            description: input.description,
-            userCategory: input.category,
-            userDepartment: input.department,
-            location: input.location,
-            duplicateCandidates,
-          }),
-        },
-      ],
-    }),
-  });
+  const modelName = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: modelName });
 
-  if (!response.ok) {
-    throw new Error(`Grok analysis failed with ${response.status}`);
+    const prompt = `Classify this campus maintenance issue and return ONLY a JSON object with these exact keys:
+- category (string): One of NETWORK, FACILITIES, SAFETY, ACADEMIC, UNCATEGORIZED
+- suggestedDepartment (string): The department that should handle this
+- priority (string): One of LOW, MEDIUM, HIGH, CRITICAL
+- severity (string): One of LOW, MEDIUM, HIGH, CRITICAL
+- confidence (number): 0-1 confidence score
+- spamScore (number): 0-1 spam likelihood
+- toxicityScore (number): 0-1 toxicity likelihood
+- moderationFlags (array of strings): e.g., ["SPAM", "TOXIC_LANGUAGE"] or []
+- reasoning (string): Brief explanation
+
+Issue details:
+Title: ${input.title}
+Description: ${input.description}
+User Category: ${input.category || "not specified"}
+User Department: ${input.department || "not specified"}
+Location: ${input.location || "not specified"}
+Duplicate Candidates: ${JSON.stringify(duplicateCandidates)}`;
+
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+
+    // Extract JSON from response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("Gemini response did not contain valid JSON");
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    const aiPriority = normalizePriority(parsed.priority);
+
+    return {
+      category: typeof parsed.category === "string" ? parsed.category : fallback.category,
+      suggestedDepartment:
+        typeof parsed.suggestedDepartment === "string" ? parsed.suggestedDepartment : fallback.suggestedDepartment,
+      aiPriority,
+      severity: normalizePriority(parsed.severity),
+      spamScore: clampScore(parsed.spamScore, fallback.spamScore),
+      toxicityScore: clampScore(parsed.toxicityScore, fallback.toxicityScore),
+      moderationFlags: Array.isArray(parsed.moderationFlags)
+        ? parsed.moderationFlags.filter((flag: unknown): flag is string => typeof flag === "string")
+        : fallback.moderationFlags,
+      confidence: clampScore(parsed.confidence, fallback.confidence),
+      duplicateCandidates,
+      reasoning: typeof parsed.reasoning === "string" ? parsed.reasoning : fallback.reasoning,
+      modelUsed: modelName,
+    };
+  } catch (error) {
+    console.warn("Gemini analysis failed, falling back to local analyzer", error);
+    return fallback;
   }
-
-  const text = extractResponseText(await response.json());
-  if (!text) {
-    throw new Error("Grok response did not include text output");
-  }
-
-  const parsed = extractJsonObject(text);
-  const aiPriority = normalizePriority(parsed.priority);
-
-  return {
-    category: typeof parsed.category === "string" ? parsed.category : fallback.category,
-    suggestedDepartment:
-      typeof parsed.suggestedDepartment === "string" ? parsed.suggestedDepartment : fallback.suggestedDepartment,
-    aiPriority,
-    severity: normalizePriority(parsed.severity),
-    spamScore: clampScore(parsed.spamScore, fallback.spamScore),
-    toxicityScore: clampScore(parsed.toxicityScore, fallback.toxicityScore),
-    moderationFlags: Array.isArray(parsed.moderationFlags)
-      ? parsed.moderationFlags.filter((flag): flag is string => typeof flag === "string")
-      : fallback.moderationFlags,
-    confidence: clampScore(parsed.confidence, fallback.confidence),
-    duplicateCandidates,
-    reasoning: typeof parsed.reasoning === "string" ? parsed.reasoning : fallback.reasoning,
-    modelUsed: model,
-  };
 }
 
 export async function analyzeIssue(
@@ -243,9 +203,9 @@ export async function analyzeIssue(
   const fallback = analyzeIssueLocally(input, duplicateCandidates);
 
   try {
-    return await analyzeIssueWithGrok(input, duplicateCandidates, fallback);
+    return await analyzeIssueWithGemini(input, duplicateCandidates, fallback);
   } catch (error) {
-    console.warn("Grok analysis unavailable, falling back to local analyzer", error);
+    console.warn("Gemini analysis unavailable, falling back to local analyzer", error);
     return fallback;
   }
 }

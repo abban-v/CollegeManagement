@@ -8,8 +8,7 @@ A campus issue-reporting platform with AI-assisted classification, prioritizatio
 
 ### Prerequisites
 - Node.js 22+
-- Docker & Docker Compose
-- PostgreSQL 16 (via Docker)
+- Supabase account (for PostgreSQL database)
 
 ### Setup
 
@@ -22,15 +21,10 @@ A campus issue-reporting platform with AI-assisted classification, prioritizatio
 2. **Copy environment variables:**
    ```bash
    cp .env.example .env.local
-   # Edit .env.local with your settings
+   # Edit .env.local with your Supabase and Gemini credentials
    ```
 
-3. **Start PostgreSQL:**
-   ```bash
-   docker-compose up -d
-   ```
-
-4. **Set up database:**
+3. **Set up database:**
    ```bash
    npx prisma migrate dev --name init
    ```
@@ -266,14 +260,13 @@ Longer explanation if needed.
 
 ### Database connection error
 ```bash
-# Check Docker is running
-docker ps
-
-# Check PostgreSQL is up
-docker-compose logs postgres
-
 # Verify DATABASE_URL in .env.local
 echo $DATABASE_URL
+
+# Test Supabase connection
+npx prisma db push
+
+# Check Supabase status at https://app.supabase.com
 ```
 
 ### Prisma type errors

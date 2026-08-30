@@ -34,6 +34,7 @@ model User {
   disputes          IssueDispute[]
   notifications     Notification[]
   sessions          Session[]
+  uploadReferences  UploadReference[]
 
   @@map("users")
 }
@@ -73,17 +74,17 @@ model Issue {
   location          String?
   suspectedCause    String?
   proposedSolution  String?
-  
+
   // Status & Priority
   status            IssueStatus        @default(REPORTED)
   priority          IssuePriority      @default(MEDIUM)
   moderationStatus  ModerationStatus   @default(NORMAL)
-  
+
   // Metadata
   reporterId        String
   reporter          User               @relation(fields: [reporterId], references: [id], onDelete: Cascade)
   affectedUserCount Int                @default(1)
-  
+
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
@@ -192,7 +193,7 @@ model IssueResolution {
   resolvedById      String
   resolvedBy        User     @relation(fields: [resolvedById], references: [id], onDelete: Restrict)
   description       String
-  
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -209,16 +210,41 @@ model ResolutionEvidence {
   id            String           @id @default(cuid())
   resolutionId  String
   resolution    IssueResolution  @relation(fields: [resolutionId], references: [id], onDelete: Cascade)
-  
+
   // File metadata
-  storageKey    String           // S3 key
+  storageKey    String           // GCS key
   mimeType      String
   fileSize      Int
-  
+
   createdAt     DateTime         @default(now())
 
   @@index([resolutionId])
   @@map("resolution_evidence")
+}
+
+// ============================================
+// UPLOAD REFERENCES (for secure evidence linking)
+// ============================================
+
+model UploadReference {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  storageKey      String    @unique
+  mimeType        String
+  fileSize        Int
+  originalFilename String
+
+  // Whether this upload has been consumed by a resolution
+  consumed        Boolean   @default(false)
+  consumedAt      DateTime?
+
+  createdAt       DateTime  @default(now())
+
+  @@index([userId])
+  @@index([consumed])
+  @@map("upload_references")
 }
 
 // ============================================
@@ -229,11 +255,11 @@ model IssueStatusHistory {
   id           String      @id @default(cuid())
   issueId      String
   issue        Issue       @relation(fields: [issueId], references: [id], onDelete: Cascade)
-  
+
   fromStatus   IssueStatus
   toStatus     IssueStatus
   reason       String?
-  
+
   createdAt    DateTime    @default(now())
 
   @@index([issueId])
@@ -245,11 +271,11 @@ model AuditLog {
   id          String   @id @default(cuid())
   issueId     String
   issue       Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
-  
+
   action      String   // "CREATE", "UPDATE", "STATUS_CHANGE", "RESOLUTION_ADDED", etc.
   actor       String   // Usually user ID, but can be "SYSTEM"
   details     String?  // JSON stringified change details
-  
+
   createdAt   DateTime @default(now())
 
   @@index([issueId])
@@ -267,10 +293,10 @@ model IssueReport {
   issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
   reporterId String
   reporter  User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
-  
+
   reason    String   // SPAM, DUPLICATE, INAPPROPRIATE, MISLEADING, OTHER
   details   String?
-  
+
   createdAt DateTime @default(now())
 
   @@index([issueId])
@@ -322,26 +348,31 @@ model AIAnalysis {
   id                    String   @id @default(cuid())
   issueId               String   @unique
   issue                 Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
-  
+
   // Classification
   category              String
   suggestedDepartment   String?
-  
+
   // Priority estimation
   aiPriority            IssuePriority
   severity              String   // LOW, MEDIUM, HIGH, CRITICAL
-  
+
   // Moderation signals
   spamScore             Float    @default(0) // 0-1
   toxicityScore         Float    @default(0) // 0-1
   moderationFlags       String[] // ["SPAM", "INAPPROPRIATE", etc]
-  
+
   // Confidence
   confidence            Float    @default(0) // 0-1
-  
+
   // Duplicate detection
   duplicateCandidates   String[] // JSON array of issue IDs
-  
+
+  // Analysis status for async processing
+  analysisStatus        AnalysisStatus @default(PENDING)
+  modelUsed             String?
+  reasoning             String?
+
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -349,14 +380,20 @@ model AIAnalysis {
   @@map("ai_analysis")
 }
 
+enum AnalysisStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
 model IssueEmbedding {
   id         String   @id @default(cuid())
   issueId    String   @unique
   issue      Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
-  
+
   // Vector embedding (pgvector will store this as vector type)
   embedding  String   // For now, store as JSON string; migrate to pgvector later
-  
+
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

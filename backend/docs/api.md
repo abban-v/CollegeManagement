@@ -405,6 +405,30 @@ DISPUTED → REOPENED, CLOSED
 
 **Behavior:** Stores the dispute, moves the issue through `DISPUTED`, and reopens it to `REOPENED` for follow-up.
 
+### Upload File
+
+**Endpoint:** `POST /upload`
+
+**Authentication:** Required
+
+**Request:** multipart/form-data with `file` field
+
+**Behavior:** Uploads evidence images to Google Cloud Storage with validation.
+
+**Response:**
+```json
+{
+  "data": {
+    "storageKey": "evidence/1690123456789-abc123-image.jpg",
+    "publicUrl": "https://storage.googleapis.com/slashforge-bucket/evidence/1690123456789-abc123-image.jpg",
+    "mimeType": "image/jpeg",
+    "fileSize": 245000
+  },
+  "error": null,
+  "status": 201
+}
+```
+
 ### Report Abuse
 
 **Endpoint:** `POST /issues/:id/report`
@@ -491,14 +515,14 @@ DISPUTED → REOPENED, CLOSED
 
 ## AI Assistance
 
-Issue creation now runs a provider-free local analyzer that:
-- Classifies issue category and suggested department from keywords
+Issue creation now runs AI analysis using Google Gemini AI that:
+- Classifies issue category and suggested department
 - Estimates priority and severity
 - Flags likely spam/toxic/duplicate content
 - Stores results in `AIAnalysis`
 - Records duplicate candidates using text similarity over recent issues
 
-This is intentionally deterministic for local development. A hosted LLM or embeddings provider can replace the analyzer behind `src/modules/ai/analyzer.ts` without changing route contracts.
+The system uses Gemini 2.5 Flash for analysis with graceful fallback to local keyword-based rules if the AI service is unavailable. The AI integration is properly abstracted behind `src/modules/ai/analyzer.ts` and can be configured via environment variables.
 
 ---
 

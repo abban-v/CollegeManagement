@@ -14,16 +14,28 @@ import { createSession } from "@/lib/auth";
  * Learning: This is the first step in authentication.
  * 
  * We:
- * 1. Validate email + password
+ * 1. Validate email + password (with complexity requirements)
  * 2. Check if user exists (prevent duplicates)
  * 3. Hash password with bcrypt (never store plaintext!)
  * 4. Create user in database
  * 5. Return user (without password)
+ * 
+ * Password requirements:
+ * - At least 8 characters
+ * - At least one uppercase letter
+ * - At least one lowercase letter
+ * - At least one number
+ * - At least one special character
  */
 
 const RegisterSchema = z.object({
   email: z.string().email("Invalid email"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number")
+    .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
   name: z.string().optional(),
 });
 
