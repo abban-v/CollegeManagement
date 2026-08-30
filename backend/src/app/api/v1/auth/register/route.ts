@@ -37,12 +37,13 @@ const RegisterSchema = z.object({
     .regex(/[0-9]/, "Password must contain at least one number")
     .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
   name: z.string().optional(),
+  role: z.nativeEnum(UserRole).optional(),
 });
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, name } = RegisterSchema.parse(body);
+    const { email, password, name, role } = RegisterSchema.parse(body);
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
         email,
         name: name || email.split("@")[0],
         password: hashedPassword, // Store hashed password
-        role: UserRole.STUDENT, // Default role
+        role: role || UserRole.STUDENT, // Default role
       },
     });
 

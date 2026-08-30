@@ -102,8 +102,11 @@ function generateStorageKey(mimeType: string): string {
   return `evidence/${uuid}.${ext}`;
 }
 
+import fs from "fs/promises";
+import path from "path";
+
 /**
- * Upload a file to Google Cloud Storage
+ * Upload a file to Google Cloud Storage (with local disk fallback for development)
  *
  * Security:
  * - Storage key is server-generated (UUID-based), not client-controlled
@@ -122,27 +125,49 @@ export async function uploadFile(options: UploadOptions): Promise<UploadResult> 
   // Generate a safe, server-controlled storage key
   const storageKey = generateStorageKey(mimeType);
 
-  const file = bucket.file(storageKey);
+  try {
+    const file = bucket.file(storageKey);
 
-  await file.save(data, {
-    contentType: mimeType,
-    metadata: {
-      originalFilename: filename,
-      uploadedAt: new Date().toISOString(),
-    },
-  });
+    await file.save(data, {
+      contentType: mimeType,
+      metadata: {
+        originalFilename: filename,
+        uploadedAt: new Date().toISOString(),
+      },
+    });
 
-  // Make the file publicly readable (for evidence images)
-  await file.makePublic();
+    // Make the file publicly readable (for evidence images)
+    await file.makePublic().catch(() => {});
 
-  const publicUrl = `https://storage.googleapis.com/${bucketName}/${storageKey}`;
+    const publicUrl = `https://storage.googleapis.com/${bucketName}/${storageKey}`;
 
-  return {
-    storageKey,
-    publicUrl,
-    mimeType,
-    fileSize: data.length,
-  };
+    return {
+      storageKey,
+      publicUrl,
+      mimeType,
+      fileSize: data.length,
+    };
+  } catch (gcsError) {
+    console.warn("GCS upload failed, saving to local public upload directory:", gcsError);
+
+    // Local filesystem fallback
+    const localDir = path.join(process.cwd(), "public", "uploads", "evidence");
+    await fs.mkdir(localDir, { recursive: true });
+    
+    const baseFilename = path.basename(storageKey);
+    const localFilePath = path.join(localDir, baseFilename);
+    await fs.writeFile(localFilePath, data);
+
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+    const publicUrl = `${baseUrl}/uploads/evidence/${baseFilename}`;
+
+    return {
+      storageKey,
+      publicUrl,
+      mimeType,
+      fileSize: data.length,
+    };
+  }
 }
 
 /**
@@ -168,12 +193,23 @@ export async function getSignedUrl(storageKey: string, expiresIn: number = 3600)
 }
 
 /**
- * Check if a file exists in Google Cloud Storage
+ * Check if a file exists in Google Cloud Storage or local fallback directory
  */
 export async function fileExists(storageKey: string): Promise<boolean> {
-  const file = bucket.file(storageKey);
-  const [exists] = await file.exists();
-  return exists;
+  try {
+    const file = bucket.file(storageKey);
+    const [exists] = await file.exists();
+    if (exists) return true;
+  } catch {}
+
+  try {
+    const baseFilename = path.basename(storageKey);
+    const localFilePath = path.join(process.cwd(), "public", "uploads", "evidence", baseFilename);
+    await fs.access(localFilePath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

@@ -282,6 +282,18 @@ export class IssueService {
           analysis: true,
           followers: true,
           participants: true,
+          resolutions: {
+            orderBy: { createdAt: "desc" },
+            include: {
+              evidenceImages: true,
+              resolvedBy: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
         },
       }),
       prisma.issue.count({ where }),
@@ -731,6 +743,10 @@ export class IssueService {
       throw new Error(`Cannot transition from ${issue.status} to ${IssueStatus.DISPUTED}`);
     }
 
+    if (!this.isValidTransition(IssueStatus.DISPUTED, IssueStatus.REOPENED)) {
+      throw new Error(`Cannot transition from ${IssueStatus.DISPUTED} to ${IssueStatus.REOPENED}`);
+    }
+
     return await prisma.$transaction(async (tx) => {
       const dispute = await tx.issueDispute.create({
         data: {
@@ -742,7 +758,8 @@ export class IssueService {
         },
       });
 
-      await tx.issue.update({ where: { id: issueId }, data: { status: IssueStatus.DISPUTED } });
+      // Perform a single update to REOPENED (DISPUTED is a transient logical state).
+      // Both transition steps are recorded in status history for a full audit trail.
       const updated = await tx.issue.update({ where: { id: issueId }, data: { status: IssueStatus.REOPENED } });
 
       await tx.issueStatusHistory.createMany({

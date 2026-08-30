@@ -9,11 +9,18 @@ import { Redis } from "@upstash/redis";
  * In production, Redis is REQUIRED — fails safely if not configured.
  */
 
-// Initialize Redis client (if configured)
-const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+// Helper to check if URL is a valid Upstash Redis URL
+function isValidUpstashUrl(url?: string): boolean {
+  if (!url || typeof url !== "string") return false;
+  const trimmed = url.trim();
+  return trimmed.startsWith("https://") && !trimmed.includes("your-upstash-redis-url");
+}
+
+// Initialize Redis client (if configured with valid URL)
+const redis = (isValidUpstashUrl(process.env.UPSTASH_REDIS_REST_URL) && process.env.UPSTASH_REDIS_REST_TOKEN && process.env.UPSTASH_REDIS_REST_TOKEN !== "your-upstash-redis-token")
   ? new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+      url: process.env.UPSTASH_REDIS_REST_URL!,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
     })
   : null;
 

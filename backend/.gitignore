@@ -26,6 +26,14 @@ dist/
 .env.development.local
 .env.test.local
 .env.production.local
+*.env
+*.env.local
+client_secret*.json
+service-account*.json
+credentials*.json
+*.pem
+*.key
+*.json.secret
 
 # Keep the example environment file
 !.env.example
