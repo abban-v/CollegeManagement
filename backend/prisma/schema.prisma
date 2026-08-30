@@ -1,0 +1,365 @@
+// This is your Prisma schema file
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String?
+  password  String     // Hashed password with bcrypt
+  role      UserRole   @default(STUDENT)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Relations
+  issues            Issue[]
+  comments          Comment[]
+  issueFollowers    IssueFollower[]
+  issueParticipants IssueParticipant[]
+  issueReports      IssueReport[]
+  resolutions       IssueResolution[]
+  disputes          IssueDispute[]
+  notifications     Notification[]
+  sessions          Session[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  STUDENT
+  OFFICIAL
+  MODERATOR
+  ADMIN
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  lastUsedAt DateTime?
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ============================================
+// ISSUES & CORE DOMAIN
+// ============================================
+
+model Issue {
+  id                String             @id @default(cuid())
+  title             String
+  description       String
+  category          String             // AI-classified: NETWORK, FACILITIES, ACADEMIC, etc.
+  department        String?
+  location          String?
+  suspectedCause    String?
+  proposedSolution  String?
+  
+  // Status & Priority
+  status            IssueStatus        @default(REPORTED)
+  priority          IssuePriority      @default(MEDIUM)
+  moderationStatus  ModerationStatus   @default(NORMAL)
+  
+  // Metadata
+  reporterId        String
+  reporter          User               @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  affectedUserCount Int                @default(1)
+  
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  // Relations
+  comments          Comment[]
+  followers         IssueFollower[]
+  participants      IssueParticipant[]
+  reports           IssueReport[]
+  disputes          IssueDispute[]
+  statusHistory     IssueStatusHistory[]
+  resolutions       IssueResolution[]
+  analysis          AIAnalysis?
+  embedding         IssueEmbedding?
+  auditLogs         AuditLog[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([moderationStatus])
+  @@index([reporterId])
+  @@index([createdAt])
+  @@map("issues")
+}
+
+enum IssueStatus {
+  REPORTED
+  UNDER_REVIEW
+  IN_PROGRESS
+  RESOLUTION_SUBMITTED
+  VERIFIED
+  CLOSED
+  REOPENED
+  DISPUTED
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ModerationStatus {
+  NORMAL
+  FLAGGED
+  UNDER_REVIEW
+  APPROVED
+  DUPLICATE
+  REMOVED
+}
+
+// ============================================
+// ISSUE PARTICIPANTS & FOLLOWERS
+// ============================================
+
+model IssueParticipant {
+  id        String   @id @default(cuid())
+  issueId   String
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([issueId, userId])
+  @@map("issue_participants")
+}
+
+model IssueFollower {
+  id        String   @id @default(cuid())
+  issueId   String
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([issueId, userId])
+  @@map("issue_followers")
+}
+
+// ============================================
+// COMMENTS
+// ============================================
+
+model Comment {
+  id        String   @id @default(cuid())
+  issueId   String
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([issueId])
+  @@index([authorId])
+  @@map("comments")
+}
+
+// ============================================
+// RESOLUTIONS & EVIDENCE
+// ============================================
+
+model IssueResolution {
+  id                String   @id @default(cuid())
+  issueId           String
+  issue             Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  resolvedById      String
+  resolvedBy        User     @relation(fields: [resolvedById], references: [id], onDelete: Restrict)
+  description       String
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  evidenceImages    ResolutionEvidence[]
+  disputes          IssueDispute[]
+
+  @@index([issueId])
+  @@index([resolvedById])
+  @@map("issue_resolutions")
+}
+
+model ResolutionEvidence {
+  id            String           @id @default(cuid())
+  resolutionId  String
+  resolution    IssueResolution  @relation(fields: [resolutionId], references: [id], onDelete: Cascade)
+  
+  // File metadata
+  storageKey    String           // S3 key
+  mimeType      String
+  fileSize      Int
+  
+  createdAt     DateTime         @default(now())
+
+  @@index([resolutionId])
+  @@map("resolution_evidence")
+}
+
+// ============================================
+// STATUS HISTORY & AUDITING
+// ============================================
+
+model IssueStatusHistory {
+  id           String      @id @default(cuid())
+  issueId      String
+  issue        Issue       @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  
+  fromStatus   IssueStatus
+  toStatus     IssueStatus
+  reason       String?
+  
+  createdAt    DateTime    @default(now())
+
+  @@index([issueId])
+  @@index([createdAt])
+  @@map("issue_status_history")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  issueId     String
+  issue       Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  
+  action      String   // "CREATE", "UPDATE", "STATUS_CHANGE", "RESOLUTION_ADDED", etc.
+  actor       String   // Usually user ID, but can be "SYSTEM"
+  details     String?  // JSON stringified change details
+  
+  createdAt   DateTime @default(now())
+
+  @@index([issueId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================
+// REPORTING & MODERATION
+// ============================================
+
+model IssueReport {
+  id        String   @id @default(cuid())
+  issueId   String
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  reporterId String
+  reporter  User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  
+  reason    String   // SPAM, DUPLICATE, INAPPROPRIATE, MISLEADING, OTHER
+  details   String?
+  
+  createdAt DateTime @default(now())
+
+  @@index([issueId])
+  @@index([reporterId])
+  @@index([reason])
+  @@unique([issueId, reporterId, reason])
+  @@map("issue_reports")
+}
+
+model IssueDispute {
+  id           String           @id @default(cuid())
+  issueId      String
+  issue        Issue            @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resolutionId String?
+  resolution   IssueResolution? @relation(fields: [resolutionId], references: [id], onDelete: SetNull)
+  reason       String
+  evidenceUrls String[]
+  createdAt    DateTime         @default(now())
+
+  @@index([issueId])
+  @@index([userId])
+  @@map("issue_disputes")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String
+  issueId   String?
+  readAt    DateTime?
+  metadata  String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([issueId])
+  @@map("notifications")
+}
+
+// ============================================
+// AI INTELLIGENCE
+// ============================================
+
+model AIAnalysis {
+  id                    String   @id @default(cuid())
+  issueId               String   @unique
+  issue                 Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  
+  // Classification
+  category              String
+  suggestedDepartment   String?
+  
+  // Priority estimation
+  aiPriority            IssuePriority
+  severity              String   // LOW, MEDIUM, HIGH, CRITICAL
+  
+  // Moderation signals
+  spamScore             Float    @default(0) // 0-1
+  toxicityScore         Float    @default(0) // 0-1
+  moderationFlags       String[] // ["SPAM", "INAPPROPRIATE", etc]
+  
+  // Confidence
+  confidence            Float    @default(0) // 0-1
+  
+  // Duplicate detection
+  duplicateCandidates   String[] // JSON array of issue IDs
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([issueId])
+  @@map("ai_analysis")
+}
+
+model IssueEmbedding {
+  id         String   @id @default(cuid())
+  issueId    String   @unique
+  issue      Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  
+  // Vector embedding (pgvector will store this as vector type)
+  embedding  String   // For now, store as JSON string; migrate to pgvector later
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([issueId])
+  @@map("issue_embeddings")
+}

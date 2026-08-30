@@ -1,0 +1,90 @@
+import { NextRequest } from "next/server";
+import { ZodError, z } from "zod";
+import prisma from "@/lib/db";
+import bcrypt from "bcryptjs";
+import { UserRole } from "@prisma/client";
+import { getErrorMessage, successResponse, errorResponse, sendJSON } from "@/lib/api";
+import { createSession } from "@/lib/auth";
+
+/**
+ * POST /api/v1/auth/register
+ * 
+ * Create a new user account
+ * 
+ * Learning: This is the first step in authentication.
+ * 
+ * We:
+ * 1. Validate email + password
+ * 2. Check if user exists (prevent duplicates)
+ * 3. Hash password with bcrypt (never store plaintext!)
+ * 4. Create user in database
+ * 5. Return user (without password)
+ */
+
+const RegisterSchema = z.object({
+  email: z.string().email("Invalid email"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  name: z.string().optional(),
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { email, password, name } = RegisterSchema.parse(body);
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      return sendJSON(errorResponse("User with this email already exists", 409));
+    }
+
+    // Hash password with bcrypt
+    // bcrypt: one-way hashing algorithm
+    // Cost factor 10: balances speed vs security
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name: name || email.split("@")[0],
+        password: hashedPassword, // Store hashed password
+        role: UserRole.STUDENT, // Default role
+      },
+    });
+
+    const session = await createSession({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    });
+
+    return sendJSON(
+      successResponse(
+        {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          session,
+          message: "Account created successfully",
+        },
+        201
+      )
+    );
+  } catch (error: unknown) {
+    console.error("Register error:", error);
+
+    if (error instanceof ZodError) {
+      return sendJSON(errorResponse(`Validation error: ${error.message}`, 400));
+    }
+
+    return sendJSON(
+      errorResponse(getErrorMessage(error, "Failed to create account"), 500)
+    );
+  }
+}
