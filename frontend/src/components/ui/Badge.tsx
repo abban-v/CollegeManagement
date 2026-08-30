@@ -78,6 +78,13 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
           Reopened / Disputed
         </span>
       );
+    case 'DISPUTED':
+      return (
+        <span className={`inline-flex items-center rounded-full bg-orange-950/80 text-orange-300 border border-orange-500/40 ${sizeClasses}`}>
+          <AlertTriangle className="w-3.5 h-3.5 text-orange-400" />
+          Disputed
+        </span>
+      );
     default:
       return null;
   }

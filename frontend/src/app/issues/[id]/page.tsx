@@ -112,7 +112,7 @@ export default function IssueDetailPage() {
 
   const isAffected = issue.affectedUserIds.includes(currentUser.id);
   const isReporter = currentUser.id === issue.reporterId;
-  const isOfficialOrAdmin = currentUser.role === 'ADMIN' || currentUser.role === 'OFFICIAL' || currentUser.role === 'SUPER_ADMIN';
+  const isOfficialOrAdmin = currentUser.role === 'ADMIN' || currentUser.role === 'OFFICIAL';
 
   const handleUpvote = () => {
     if (!isAffected) {

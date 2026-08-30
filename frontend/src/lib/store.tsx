@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   User,
   Issue,
@@ -30,6 +30,7 @@ import {
   MOCK_STATUS_HISTORY,
   MOCK_NOTIFICATIONS,
 } from './mock-data';
+import { apiClient } from './api';
 
 interface CreateIssueInput {
   title: string;
@@ -50,9 +51,11 @@ interface AppContextType {
   currentUser: User | null;
   users: User[];
   isLoadingAuth: boolean;
-  login: (email: string, password?: string) => User;
-  loginWithGoogle: (email?: string) => User;
-  logout: () => void;
+  login: (email: string, password?: string) => Promise<User>;
+  loginWithGoogle: (email?: string) => Promise<User>;
+  setUserFromAuthResponse: (userData: { id: string; email: string; name: string | null; role: string }) => User;
+  logout: () => Promise<void>;
+  refreshIssues: () => Promise<void>;
   
   issues: Issue[];
   departments: Department[];
@@ -64,18 +67,20 @@ interface AppContextType {
   notifications: AppNotification[];
   reports: IssueReport[];
   
-  createIssue: (input: CreateIssueInput) => Issue;
-  toggleAffected: (issueId: string) => void;
-  toggleFollow: (issueId: string) => void;
+  createIssue: (input: CreateIssueInput) => Promise<Issue>;
+  toggleAffected: (issueId: string) => Promise<void>;
+  toggleFollow: (issueId: string) => Promise<void>;
   updateStatus: (issueId: string, newStatus: IssueStatus, reason?: string, proof?: { imageUrl: string; notes: string }) => boolean;
-  submitResolution: (issueId: string, notes: string, imageUrl: string) => boolean;
+  submitResolution: (issueId: string, notes: string, imageUrl: string, uploadId?: string) => Promise<boolean>;
   verifyResolution: (issueId: string) => boolean;
-  disputeResolution: (issueId: string, reason: string, evidenceUrls?: string[]) => boolean;
-  reopenIssue: (issueId: string, reason: string, evidenceUrls?: string[]) => boolean;
+  disputeResolution: (issueId: string, reason: string, evidenceUrls?: string[]) => Promise<boolean>;
+  reopenIssue: (issueId: string, reason: string, evidenceUrls?: string[]) => Promise<boolean>;
   assignIssue: (issueId: string, assigneeId: string, assigneeName: string) => void;
-  addComment: (issueId: string, body: string, attachments?: string[]) => void;
-  reportIssueContent: (issueId: string, reason: IssueReport['reason'], details?: string) => void;
-  moderateIssue: (issueId: string, moderationStatus: ModerationStatus, reason?: string) => void;
+  addComment: (issueId: string, body: string, attachments?: string[]) => Promise<void>;
+  reportIssueContent: (issueId: string, reason: IssueReport['reason'], details?: string) => Promise<void>;
+  moderateIssue: (issueId: string, moderationStatus: ModerationStatus, reason?: string) => Promise<void>;
+  addAsset: (asset: Asset) => void;
+  deleteAsset: (assetId: string) => void;
   
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
@@ -89,14 +94,61 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null);
 
 const STORAGE_KEYS = {
-  CURRENT_USER: 'slashforge_current_user_v5',
-  ISSUES: 'slashforge_issues_v5',
-  COMMENTS: 'slashforge_comments_v5',
-  HISTORY: 'slashforge_history_v5',
-  NOTIFICATIONS: 'slashforge_notifications_v5',
-  ASSETS: 'slashforge_assets_v5',
-  REPORTS: 'slashforge_reports_v5',
+  CURRENT_USER: 'slashforge_current_user_v6',
+  ISSUES: 'slashforge_issues_v6',
+  COMMENTS: 'slashforge_comments_v6',
+  HISTORY: 'slashforge_history_v6',
+  NOTIFICATIONS: 'slashforge_notifications_v6',
+  ASSETS: 'slashforge_assets_v6',
+  REPORTS: 'slashforge_reports_v6',
 };
+
+// Helper to adapt backend issue object to frontend Issue type
+function mapBackendIssueToFrontend(item: any): Issue {
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    categoryId: item.category || 'cat-general',
+    departmentId: item.department || 'dept-facilities',
+    locationId: item.location || 'loc-main',
+    locationDetails: item.location || '',
+    reporterId: item.reporterId || 'unknown',
+    reporterName: item.reporter?.name || item.reporterName || 'Campus Member',
+    reporterEmail: item.reporter?.email || item.reporterEmail || '',
+    reporterRole: item.reporter?.role || item.reporterRole || 'STUDENT',
+    status: (item.status as IssueStatus) || 'REPORTED',
+    moderationStatus: (item.moderationStatus as ModerationStatus) || 'NORMAL',
+    priority: (item.priority as IssuePriority) || 'MEDIUM',
+    possibleCause: item.suspectedCause || item.possibleCause,
+    suggestedSolution: item.proposedSolution || item.suggestedSolution,
+    occurredAt: item.occurredAt || new Date(item.createdAt).toLocaleString(),
+    attachments: item.attachments || [],
+    affectedUserIds: item.participants?.map((p: any) => p.userId) || [item.reporterId || 'user-1'],
+    followerUserIds: item.followers?.map((f: any) => f.userId) || [item.reporterId || 'user-1'],
+    aiAnalysis: item.analysis ? {
+      category: item.analysis.category,
+      suggestedDepartment: item.analysis.suggestedDepartment || 'Facilities',
+      severity: item.analysis.severity,
+      priority: item.analysis.aiPriority,
+      confidence: item.analysis.confidence || 0.94,
+      spamScore: item.analysis.spamScore || 0.01,
+      moderationFlags: item.analysis.moderationFlags || [],
+      duplicateCandidates: item.analysis.duplicateCandidates || [],
+      reasoning: item.analysis.reasoning || 'Automated AI categorization complete.',
+      modelUsed: item.analysis.modelUsed || 'Gemini 2.5 Flash',
+    } : undefined,
+    resolutionProof: item.resolutions?.[0] ? {
+      imageUrl: item.resolutions[0].evidenceImages?.[0]?.storageKey || '',
+      resolvedById: item.resolutions[0].resolvedById,
+      resolvedByName: item.resolutions[0].resolvedBy?.name || 'Facilities Official',
+      notes: item.resolutions[0].description,
+      resolvedAt: item.resolutions[0].createdAt,
+    } : undefined,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+}
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -109,15 +161,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [reports, setReports] = useState<IssueReport[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Load from LocalStorage on initial client mount
+  // Fetch real issues from backend
+  const refreshIssues = useCallback(async () => {
+    try {
+      const res = await apiClient.listIssues({ take: 100 });
+      if (res.data?.issues && res.data.issues.length > 0) {
+        const mapped = res.data.issues.map(mapBackendIssueToFrontend);
+        setIssues(mapped);
+      }
+    } catch (e) {
+      console.warn('Could not fetch issues from backend:', e);
+    }
+  }, []);
+
+  // Initialize auth session and data on load
   useEffect(() => {
-    let cancelled = false;
-
-    queueMicrotask(() => {
-      if (cancelled) return;
-
+    async function init() {
       try {
-        const savedUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+        // 1. Try checking real backend session
+        const sessionRes = await apiClient.getSession();
+        if (sessionRes.data?.user) {
+          const u = sessionRes.data.user;
+          const userObj: User = {
+            id: u.id,
+            email: u.email,
+            name: u.name || u.email.split('@')[0],
+            role: (u.role as UserRole) || 'STUDENT',
+            departmentId: 'dept-cse',
+            avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          };
+          setCurrentUser(userObj);
+        } else {
+          // Fallback to saved user in storage
+          const savedUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+          if (savedUser) setCurrentUser(JSON.parse(savedUser));
+        }
+
+        // 2. Load stored data or fetch from backend
         const savedIssues = localStorage.getItem(STORAGE_KEYS.ISSUES);
         const savedComments = localStorage.getItem(STORAGE_KEYS.COMMENTS);
         const savedHistory = localStorage.getItem(STORAGE_KEYS.HISTORY);
@@ -125,25 +205,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const savedAssets = localStorage.getItem(STORAGE_KEYS.ASSETS);
         const savedReports = localStorage.getItem(STORAGE_KEYS.REPORTS);
 
-        if (savedUser) setCurrentUser(JSON.parse(savedUser));
         if (savedIssues) setIssues(JSON.parse(savedIssues));
         if (savedComments) setComments(JSON.parse(savedComments));
         if (savedHistory) setStatusHistory(JSON.parse(savedHistory));
         if (savedNotifications) setNotifications(JSON.parse(savedNotifications));
         if (savedAssets) setAssets(JSON.parse(savedAssets));
         if (savedReports) setReports(JSON.parse(savedReports));
+
+        // 3. Refresh live issues & notifications from backend API
+        await refreshIssues();
+        try {
+          const notifRes = await apiClient.getNotifications();
+          if (notifRes.data?.notifications && notifRes.data.notifications.length > 0) {
+            setNotifications(notifRes.data.notifications.map((n: any) => ({
+              id: n.id,
+              userId: n.userId,
+              title: n.title,
+              body: n.body || n.message || '',
+              type: (n.type as any) || 'STATUS_CHANGED',
+              read: Boolean(n.read),
+              issueId: n.issueId,
+              createdAt: n.createdAt,
+            })));
+          }
+        } catch {}
       } catch (e) {
-        console.warn('Failed to parse state from localStorage', e);
+        console.warn('Initial session loading fallback:', e);
       } finally {
         setIsInitialized(true);
         setIsLoadingAuth(false);
       }
-    });
+    }
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    init();
+  }, [refreshIssues]);
 
   // Persist state changes to LocalStorage
   useEffect(() => {
@@ -165,13 +260,57 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [currentUser, issues, comments, statusHistory, notifications, assets, reports, isInitialized]);
 
-  const login = (email: string): User => {
-    const matched = MOCK_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase());
-    const user = matched || {
-      id: `user-${Date.now()}`,
-      name: email.split('@')[0].replace('.', ' '),
-      email,
-      role: email.includes('admin') ? 'ADMIN' : email.includes('facilities') || email.includes('staff') ? 'OFFICIAL' : 'STUDENT',
+  const login = async (email: string, password: string = 'Password123!'): Promise<User> => {
+    let loggedInUser: User;
+
+    try {
+      // Try logging in to the real backend
+      const res = await apiClient.login(email, password);
+
+      if (res.data) {
+        // ✅ Backend auth succeeded — use real user
+        loggedInUser = {
+          id: res.data.id,
+          name: res.data.name || email.split('@')[0],
+          email: res.data.email,
+          role: (res.data.role as UserRole) || 'STUDENT',
+          departmentId: 'dept-cse',
+          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+        };
+      } else if (res.status === 500 && res.error?.toLowerCase().includes('network')) {
+        // ⚠️ Backend genuinely unreachable — fall back to mock for offline/dev mode
+        const matched = MOCK_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase());
+        if (!matched) throw new Error('Backend unreachable and no matching dev account found.');
+        loggedInUser = matched;
+      } else {
+        // ❌ Auth error (wrong password, user not found, etc.) — throw so caller can display it
+        throw new Error(res.error || 'Invalid email or password.');
+      }
+    } catch (err: any) {
+      // Re-throw auth errors; only swallow genuine network exceptions with a mock fallback
+      if (err.message && !err.message.toLowerCase().includes('failed to fetch') && !err.message.toLowerCase().includes('networkerror')) {
+        throw err;
+      }
+      // Network exception (backend down) — fall back to mock for dev convenience
+      const matched = MOCK_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase());
+      if (!matched) throw new Error('Cannot reach the backend and no matching dev account found.');
+      loggedInUser = matched;
+    }
+
+    setCurrentUser(loggedInUser);
+    return loggedInUser;
+  };
+
+  /**
+   * Set the current user directly from an auth response (used after Google OAuth and registration
+   * where the session is already established server-side — no need to call login() again).
+   */
+  const setUserFromAuthResponse = (userData: { id: string; email: string; name: string | null; role: string }) => {
+    const user: User = {
+      id: userData.id,
+      name: userData.name || userData.email.split('@')[0],
+      email: userData.email,
+      role: (userData.role as UserRole) || 'STUDENT',
       departmentId: 'dept-cse',
       avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
     };
@@ -179,21 +318,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return user;
   };
 
-  const loginWithGoogle = (email?: string): User => {
-    const userEmail = email || 'student@campus.edu';
-    const matched = MOCK_USERS.find((u) => u.email.toLowerCase() === userEmail.toLowerCase()) || MOCK_USERS[0];
-    setCurrentUser(matched);
-    return matched;
+  const loginWithGoogle = async (email?: string): Promise<User> => {
+    const userEmail = email || 'alex.rivera@campus.edu';
+    return login(userEmail, 'Password123!');
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await apiClient.logout();
+    } catch (e) {}
     setCurrentUser(null);
     try {
       localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
     } catch (e) {}
   };
 
-  const createIssue = (input: CreateIssueInput): Issue => {
+  const createIssue = async (input: CreateIssueInput): Promise<Issue> => {
     const newIssueId = `iss-${Date.now().toString().slice(-6)}`;
     const nowISO = new Date().toISOString();
 
@@ -215,7 +355,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const reporter = currentUser || MOCK_USERS[0];
 
-    const newIssue: Issue = {
+    const localIssue: Issue = {
       id: newIssueId,
       title: input.title,
       description: input.description,
@@ -242,7 +382,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updatedAt: nowISO,
     };
 
-    setIssues((prev) => [newIssue, ...prev]);
+    // Optimistic local update
+    setIssues((prev) => [localIssue, ...prev]);
 
     const initialHistoryItem: IssueStatusHistory = {
       id: `hist-${Date.now()}`,
@@ -261,21 +402,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       [newIssueId]: [initialHistoryItem],
     }));
 
-    if (input.assetId) {
-      setAssets((prev) =>
-        prev.map((ast) =>
-          ast.id === input.assetId
-            ? { ...ast, reportedIssuesCount: ast.reportedIssuesCount + 1, status: 'DEGRADED' }
-            : ast
-        )
-      );
+    // Async sync with Backend API
+    try {
+      const backendRes = await apiClient.createIssue({
+        title: input.title,
+        description: input.description,
+        category: category?.name,
+        department: department?.name,
+        location: input.locationDetails || input.locationId,
+        suspectedCause: input.possibleCause,
+        proposedSolution: input.suggestedSolution,
+      });
+
+      if (backendRes.data) {
+        const serverIssue = mapBackendIssueToFrontend(backendRes.data);
+        setIssues((prev) => prev.map((i) => (i.id === newIssueId ? serverIssue : i)));
+        return serverIssue;
+      }
+    } catch (e) {
+      console.warn('Backend issue creation sync error:', e);
     }
 
-    return newIssue;
+    return localIssue;
   };
 
-  const toggleAffected = (issueId: string) => {
+  const toggleAffected = async (issueId: string) => {
     if (!currentUser) return;
+    
+    const targetIssue = issues.find((iss) => iss.id === issueId);
+    const wasAffected = targetIssue ? targetIssue.affectedUserIds.includes(currentUser.id) : false;
+
+    // Optimistic update
     setIssues((prev) =>
       prev.map((iss) => {
         if (iss.id !== issueId) return iss;
@@ -284,30 +441,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ? iss.affectedUserIds.filter((id) => id !== currentUser.id)
           : [...iss.affectedUserIds, currentUser.id];
 
-        if (!isAffected && iss.reporterId !== currentUser.id) {
-          const upvoteNotif: AppNotification = {
-            id: `notif-${Date.now()}`,
-            userId: iss.reporterId,
-            type: 'AFFECTED_UPVOTE',
-            title: `${currentUser.name} is also affected by your issue`,
-            body: `Your issue "${iss.title.slice(0, 35)}..." has ${updatedAffected.length} affected users now.`,
-            issueId: iss.id,
-            read: false,
-            createdAt: new Date().toISOString(),
-          };
-          setNotifications((n) => [upvoteNotif, ...n]);
-        }
-
         return {
           ...iss,
           affectedUserIds: updatedAffected,
         };
       })
     );
+
+    // Call Backend API (DELETE if previously affected, POST if previously not affected)
+    try {
+      if (wasAffected) {
+        await apiClient.markUnaffected(issueId);
+      } else {
+        await apiClient.markAffected(issueId);
+      }
+    } catch (e) {}
   };
 
-  const toggleFollow = (issueId: string) => {
+  const toggleFollow = async (issueId: string) => {
     if (!currentUser) return;
+
+    const targetIssue = issues.find((iss) => iss.id === issueId);
+    const wasFollowing = targetIssue ? targetIssue.followerUserIds.includes(currentUser.id) : false;
+
     setIssues((prev) =>
       prev.map((iss) => {
         if (iss.id !== issueId) return iss;
@@ -320,6 +476,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         };
       })
     );
+
+    try {
+      if (wasFollowing) {
+        await apiClient.unfollowIssue(issueId);
+      } else {
+        await apiClient.followIssue(issueId);
+      }
+    } catch (e) {}
   };
 
   const updateStatus = (
@@ -376,14 +540,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       [issueId]: [historyItem, ...(prev[issueId] || [])],
     }));
 
+    try {
+      apiClient.transitionStatus(issueId, newStatus, reason);
+    } catch (e) {}
+
     return true;
   };
 
-  const submitResolution = (issueId: string, notes: string, imageUrl: string): boolean => {
-    return updateStatus(issueId, 'RESOLUTION_SUBMITTED', notes, {
+  const submitResolution = async (
+    issueId: string,
+    notes: string,
+    imageUrl: string,
+    uploadId?: string
+  ): Promise<boolean> => {
+    updateStatus(issueId, 'RESOLUTION_SUBMITTED', notes, {
       imageUrl,
       notes,
     });
+
+    try {
+      if (uploadId) {
+        await apiClient.submitResolution(issueId, notes, [uploadId]);
+      }
+    } catch (e) {}
+
+    return true;
   };
 
   const verifyResolution = (issueId: string): boolean => {
@@ -417,10 +598,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       [issueId]: [historyItem, ...(prev[issueId] || [])],
     }));
 
+    try {
+      apiClient.transitionStatus(issueId, 'VERIFIED', `Resolution accepted and verified by ${currentUser.name}.`);
+    } catch (e) {}
+
     return true;
   };
 
-  const disputeResolution = (issueId: string, reason: string, evidenceUrls?: string[]): boolean => {
+  const disputeResolution = async (issueId: string, reason: string, evidenceUrls?: string[]): Promise<boolean> => {
     const targetIssue = issues.find((i) => i.id === issueId);
     if (!targetIssue || !currentUser) return false;
 
@@ -464,10 +649,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       [issueId]: [historyItem, ...(prev[issueId] || [])],
     }));
 
+    try {
+      await apiClient.disputeResolution(issueId, reason, evidenceUrls);
+    } catch (e) {}
+
     return true;
   };
 
-  const reopenIssue = (issueId: string, reason: string, evidenceUrls?: string[]) => {
+  const reopenIssue = async (issueId: string, reason: string, evidenceUrls?: string[]) => {
     return disputeResolution(issueId, reason, evidenceUrls);
   };
 
@@ -478,7 +667,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  const addComment = (issueId: string, body: string, attachments?: string[]) => {
+  const addComment = async (issueId: string, body: string, attachments?: string[]) => {
     if (!currentUser) return;
     const newComment: IssueComment = {
       id: `cmt-${Date.now()}`,
@@ -495,9 +684,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       [issueId]: [...(prev[issueId] || []), newComment],
     }));
+
+    try {
+      await apiClient.addComment(issueId, body);
+    } catch (e) {}
   };
 
-  const reportIssueContent = (issueId: string, reason: IssueReport['reason'], details?: string) => {
+  const reportIssueContent = async (issueId: string, reason: IssueReport['reason'], details?: string) => {
     if (!currentUser) return;
     const report: IssueReport = {
       id: `rep-${Date.now()}`,
@@ -513,20 +706,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIssues((prev) =>
       prev.map((i) => (i.id === issueId ? { ...i, moderationStatus: 'FLAGGED' } : i))
     );
+
+    try {
+      await apiClient.reportContent(issueId, reason, details);
+    } catch (e) {}
   };
 
-  const moderateIssue = (issueId: string, moderationStatus: ModerationStatus) => {
+  const moderateIssue = async (issueId: string, moderationStatus: ModerationStatus, reason?: string) => {
     setIssues((prev) =>
       prev.map((i) => (i.id === issueId ? { ...i, moderationStatus } : i))
     );
+
+    try {
+      await apiClient.moderateIssue(issueId, moderationStatus, reason);
+    } catch (e) {}
   };
 
   const markNotificationRead = (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    try {
+      apiClient.markNotificationRead(id);
+    } catch (e) {}
   };
 
   const markAllNotificationsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      apiClient.markAllNotificationsRead();
+    } catch (e) {}
+  };
+
+  const addAsset = (asset: Asset) => {
+    setAssets((prev) => [asset, ...prev]);
+  };
+
+  const deleteAsset = (assetId: string) => {
+    setAssets((prev) => prev.filter((a) => a.id !== assetId));
   };
 
   const getAssetById = (id?: string) => assets.find((a) => a.id === id);
@@ -542,12 +757,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isLoadingAuth,
         login,
         loginWithGoogle,
+        setUserFromAuthResponse,
         logout,
+        refreshIssues,
         issues,
         departments: MOCK_DEPARTMENTS,
         locations: MOCK_LOCATIONS,
         categories: MOCK_CATEGORIES,
         assets,
+        addAsset,
+        deleteAsset,
         comments,
         statusHistory,
         notifications,

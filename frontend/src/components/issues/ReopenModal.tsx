@@ -24,14 +24,14 @@ export const ReopenModal: React.FC<ReopenModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reason.trim() || reason.length < 10) {
       setError('Please explain why the issue is still not resolved (minimum 10 characters).');
       return;
     }
 
-    const success = reopenIssue(
+    const success = await reopenIssue(
       issueId,
       reason.trim(),
       evidenceImage ? [evidenceImage] : []

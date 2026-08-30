@@ -56,6 +56,27 @@ export default function AdminDashboardPage() {
     );
   }
 
+  if (currentUser.role === 'STUDENT') {
+    return (
+      <div className="min-h-screen bg-[#060813] text-slate-100 flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <ShieldAlert className="w-12 h-12 text-purple-400 mb-3" />
+          <h2 className="text-xl font-bold">Restricted Staff Access</h2>
+          <p className="text-sm text-slate-400 mt-1 max-w-md">
+            The operations and moderation console is reserved for authorized maintenance officials and administrators.
+          </p>
+          <Link
+            href="/"
+            className="mt-5 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-semibold text-white shadow-lg"
+          >
+            Back to Campus Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const openIssues = issues.filter((i) => i.status !== 'VERIFIED' && i.status !== 'CLOSED');
   const criticalIssues = issues.filter((i) => i.priority === 'CRITICAL' && i.status !== 'VERIFIED' && i.status !== 'CLOSED');
   const verifiedIssues = issues.filter((i) => i.status === 'VERIFIED');

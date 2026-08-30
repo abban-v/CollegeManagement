@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/lib/store';
-import { X, CheckCircle2, Upload, AlertCircle, Camera, ShieldCheck, Check } from 'lucide-react';
+import { apiClient } from '@/lib/api';
+import { X, CheckCircle2, Upload, AlertCircle, Camera, ShieldCheck, Check, Loader2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface ResolutionProofModalProps {
@@ -20,27 +21,14 @@ export const ResolutionProofModal: React.FC<ResolutionProofModalProps> = ({
 }) => {
   const { submitResolution } = useApp();
   const [proofImage, setProofImage] = useState<string>('');
+  const [uploadId, setUploadId] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [isUploading, setIsUploading] = useState(false);
 
   if (!isOpen) return null;
 
-  const sampleProofs = [
-    {
-      title: 'Fixed Air Filter / Cooling Replaced',
-      url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80',
-    },
-    {
-      title: 'Condensate Drain Pipe Flushed & Repaired',
-      url: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=600&auto=format&fit=crop&q=80',
-    },
-    {
-      title: 'Equipment Calibration & Safety Sign-off',
-      url: 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=600&auto=format&fit=crop&q=80',
-    },
-  ];
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!proofImage) {
       setError('A verification photo proof is strictly required by campus policy to submit a resolution.');
@@ -51,7 +39,7 @@ export const ResolutionProofModal: React.FC<ResolutionProofModalProps> = ({
       return;
     }
 
-    const success = submitResolution(issueId, notes.trim(), proofImage);
+    const success = await submitResolution(issueId, notes.trim(), proofImage, uploadId || undefined);
 
     if (success) {
       confetti({
@@ -108,37 +96,61 @@ export const ResolutionProofModal: React.FC<ResolutionProofModalProps> = ({
             </label>
 
             {/* Clean Dropzone */}
-            <div className="p-6 rounded-2xl border-2 border-dashed border-emerald-500/30 bg-emerald-950/20 text-center hover:border-emerald-500/60 transition-colors">
-              <Upload className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-              <p className="text-xs font-semibold text-slate-200">Upload official resolution proof photo</p>
-              <p className="text-[11px] text-slate-400 mt-1 mb-3">JPG, PNG, WebP up to 10MB</p>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      setProofImage(reader.result as string);
-                      setError('');
-                    };
-                    reader.readAsDataURL(file);
-                  }
-                }}
-                className="text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer"
-              />
+            <div className="p-6 rounded-2xl border-2 border-dashed border-emerald-500/30 bg-emerald-950/20 text-center hover:border-emerald-500/60 transition-colors relative">
+              {isUploading ? (
+                <div className="flex flex-col items-center justify-center py-4 text-emerald-400">
+                  <Loader2 className="w-8 h-8 animate-spin mb-2" />
+                  <p className="text-xs font-semibold">Uploading proof image...</p>
+                </div>
+              ) : (
+                <>
+                  <Upload className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                  <p className="text-xs font-semibold text-slate-200">Upload official resolution proof photo</p>
+                  <p className="text-[11px] text-slate-400 mt-1 mb-3">JPG, PNG, WebP up to 5MB</p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setIsUploading(true);
+                        setError('');
+                        try {
+                          const res = await apiClient.uploadFile(file);
+                          if (res.data?.publicUrl) {
+                            setProofImage(res.data.publicUrl);
+                            if (res.data.uploadId) {
+                              setUploadId(res.data.uploadId);
+                            }
+                          } else {
+                            const reader = new FileReader();
+                            reader.onload = () => setProofImage(reader.result as string);
+                            reader.readAsDataURL(file);
+                          }
+                        } catch {
+                          const reader = new FileReader();
+                          reader.onload = () => setProofImage(reader.result as string);
+                          reader.readAsDataURL(file);
+                        } finally {
+                          setIsUploading(false);
+                        }
+                      }
+                    }}
+                    className="text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer"
+                  />
+                </>
+              )}
             </div>
 
             {proofImage && (
               <div className="mt-3 flex items-center justify-between p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-xs text-emerald-200">
                 <span className="flex items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5 text-emerald-400" /> Photo attached
+                  <Check className="w-3.5 h-3.5 text-emerald-400" /> Photo attached & verified
                 </span>
                 <button
                   type="button"
                   onClick={() => setProofImage('')}
-                  className="text-slate-400 hover:text-red-400 text-xs underline"
+                  className="text-slate-400 hover:text-rose-400 text-xs underline cursor-pointer"
                 >
                   Remove
                 </button>

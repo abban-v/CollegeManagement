@@ -1,10 +1,11 @@
-export type UserRole = 'STUDENT' | 'OFFICIAL' | 'ADMIN' | 'SUPER_ADMIN';
+export type UserRole = 'STUDENT' | 'OFFICIAL' | 'MODERATOR' | 'ADMIN';
 
 export type IssueStatus =
   | 'REPORTED'
   | 'UNDER_REVIEW'
   | 'IN_PROGRESS'
   | 'RESOLUTION_SUBMITTED'
+  | 'DISPUTED'
   | 'VERIFIED'
   | 'CLOSED'
   | 'REOPENED';

@@ -10,30 +10,37 @@ import {
   Search,
   Building2,
   MapPin,
-  QrCode,
   Calendar,
   AlertOctagon,
   CheckCircle2,
   AlertTriangle,
   Clock,
-  ArrowRight,
   Sparkles,
-  ExternalLink,
-  ShieldCheck,
+  Plus,
+  X,
   Cpu,
   Tv,
   AirVent,
   Zap,
   Droplets,
+  Trash2,
   Loader2
 } from 'lucide-react';
-import Link from 'next/link';
+import confetti from 'canvas-confetti';
 
 export default function AssetsPage() {
   const router = useRouter();
-  const { assets, departments, locations, issues, getDepartmentById, getLocationById, getCategoryById, currentUser, isLoadingAuth } = useApp();
+  const { assets, departments, issues, getDepartmentById, currentUser, isLoadingAuth, addAsset, deleteAsset } = useApp();
   const [search, setSearch] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
+  const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
+
+  // New Asset Form State
+  const [newAssetName, setNewAssetName] = useState('');
+  const [newAssetTag, setNewAssetTag] = useState('');
+  const [newAssetDept, setNewAssetDept] = useState(departments[0]?.id || 'dept-cse');
+  const [newAssetLocation, setNewAssetLocation] = useState('');
+  const [newAssetModel, setNewAssetModel] = useState('');
 
   useEffect(() => {
     if (!isLoadingAuth && !currentUser) {
@@ -49,6 +56,8 @@ export default function AssetsPage() {
     );
   }
 
+  const isOfficialOrAdmin = currentUser.role === 'ADMIN' || currentUser.role === 'OFFICIAL';
+
   const filteredAssets = assets.filter((asset) => {
     if (selectedDept !== 'ALL' && asset.departmentId !== selectedDept) return false;
     if (search) {
@@ -56,49 +65,80 @@ export default function AssetsPage() {
       return (
         asset.name.toLowerCase().includes(q) ||
         asset.assetTag.toLowerCase().includes(q) ||
-        asset.modelNumber?.toLowerCase().includes(q)
+        asset.modelNumber?.toLowerCase().includes(q) ||
+        (asset.locationId || '').toLowerCase().includes(q)
       );
     }
     return true;
   });
 
   const getAssetCategoryIcon = (tag: string) => {
-    if (tag.startsWith('PRJ')) return <Tv className="w-5 h-5 text-purple-400" />;
-    if (tag.startsWith('AC')) return <AirVent className="w-5 h-5 text-cyan-400" />;
-    if (tag.startsWith('LAB')) return <Cpu className="w-5 h-5 text-emerald-400" />;
-    if (tag.startsWith('UPS')) return <Zap className="w-5 h-5 text-amber-400" />;
-    return <Droplets className="w-5 h-5 text-blue-400" />;
+    if (tag.startsWith('PRJ') || tag.startsWith('AV')) return <Tv className="w-4 h-4 text-purple-400" />;
+    if (tag.startsWith('AC') || tag.startsWith('HVAC')) return <AirVent className="w-4 h-4 text-cyan-400" />;
+    if (tag.startsWith('LAB') || tag.startsWith('PC')) return <Cpu className="w-4 h-4 text-emerald-400" />;
+    if (tag.startsWith('UPS') || tag.startsWith('PWR')) return <Zap className="w-4 h-4 text-amber-400" />;
+    return <Box className="w-4 h-4 text-slate-400" />;
   };
 
   const getStatusBadge = (status: Asset['status']) => {
     switch (status) {
       case 'OPERATIONAL':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-950/70 text-emerald-300 border border-emerald-500/30">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Operational
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-950/70 text-emerald-300 border border-emerald-500/30">
+            <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Operational
           </span>
         );
       case 'DEGRADED':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-950/70 text-amber-300 border border-amber-500/30">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" /> Degraded
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-950/70 text-amber-300 border border-amber-500/30">
+            <AlertTriangle className="w-3 h-3 text-amber-400" /> Degraded
           </span>
         );
       case 'UNDER_MAINTENANCE':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-950/80 text-indigo-300 border border-indigo-500/30">
-            <Clock className="w-3.5 h-3.5 text-indigo-400" /> In Maintenance
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-950/80 text-indigo-300 border border-indigo-500/30">
+            <Clock className="w-3 h-3 text-indigo-400" /> In Maintenance
           </span>
         );
       case 'OUT_OF_SERVICE':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-950/80 text-rose-300 border border-rose-500/30">
-            <AlertOctagon className="w-3.5 h-3.5 text-rose-400" /> Out of Service
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-950/80 text-rose-300 border border-rose-500/30">
+            <AlertOctagon className="w-3 h-3 text-rose-400" /> Out of Service
           </span>
         );
       default:
         return null;
     }
+  };
+
+  const handleAddAsset = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAssetName.trim() || !newAssetTag.trim()) {
+      alert('Please provide an asset name and tag.');
+      return;
+    }
+
+    const createdAsset: Asset = {
+      id: `ast-${Date.now()}`,
+      name: newAssetName.trim(),
+      assetTag: newAssetTag.trim().toUpperCase(),
+      category: 'cat-general',
+      departmentId: newAssetDept,
+      locationId: newAssetLocation.trim() || 'Main Campus',
+      status: 'OPERATIONAL',
+      modelNumber: newAssetModel.trim() || undefined,
+      installedAt: new Date().toISOString().split('T')[0],
+      lastServicedAt: new Date().toISOString().split('T')[0],
+      reportedIssuesCount: 0,
+    };
+
+    addAsset(createdAsset);
+    confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+    setIsAddAssetOpen(false);
+    setNewAssetName('');
+    setNewAssetTag('');
+    setNewAssetLocation('');
+    setNewAssetModel('');
   };
 
   return (
@@ -112,20 +152,29 @@ export default function AssetsPage() {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-950/60 border border-purple-500/30 text-purple-300 text-xs font-semibold mb-2">
               <Box className="w-3.5 h-3.5" />
-              Digital Asset Registry
+              CET Campus Equipment Registry
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Maintainable Campus Assets
+              Campus Assets & Equipment
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Live digital profiles, health metrics, and maintenance histories for campus infrastructure.
+              Maintainable lab equipment, projectors, and facilities across CET departments.
             </p>
           </div>
 
           <div className="flex items-center gap-3">
+            {isOfficialOrAdmin && (
+              <button
+                onClick={() => setIsAddAssetOpen(true)}
+                className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white shadow-lg shadow-purple-600/30 flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Register Asset
+              </button>
+            )}
             <div className="p-3 rounded-2xl glass-panel text-center">
-              <span className="text-[11px] text-slate-400">Total Registered</span>
-              <p className="text-xl font-extrabold text-white">{assets.length} Assets</p>
+              <span className="text-[11px] text-slate-400">Total Assets</span>
+              <p className="text-xl font-extrabold text-white">{assets.length}</p>
             </div>
           </div>
         </div>
@@ -136,7 +185,7 @@ export default function AssetsPage() {
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
             <input
               type="text"
-              placeholder="Search by asset tag (e.g. PRJ-TUR-304), model, or equipment name..."
+              placeholder="Search by asset tag, model, or equipment name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#090d20] border border-indigo-950 text-xs text-white placeholder-slate-500 focus:border-purple-500 outline-none"
@@ -157,79 +206,221 @@ export default function AssetsPage() {
           </select>
         </div>
 
-        {/* Assets Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredAssets.map((asset) => {
-            const dept = getDepartmentById(asset.departmentId);
-            const loc = getLocationById(asset.locationId);
-            const relatedIssues = issues.filter((i) => i.assetId === asset.id);
-
-            return (
-              <div
-                key={asset.id}
-                className="rounded-2xl glass-panel glass-panel-hover p-5 flex flex-col justify-between overflow-hidden relative"
+        {/* Empty State */}
+        {filteredAssets.length === 0 && (
+          <div className="rounded-3xl glass-panel p-12 text-center border border-indigo-500/20 max-w-lg mx-auto my-12">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-950/60 border border-indigo-500/30 text-indigo-300 flex items-center justify-center mx-auto mb-4">
+              <Box className="w-7 h-7" />
+            </div>
+            <h3 className="text-base font-bold text-white mb-1">No Registered Campus Assets</h3>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed mb-6">
+              Campus equipment (projectors, lab instruments, AC units) will appear here once registered by facilities staff.
+            </p>
+            {isOfficialOrAdmin && (
+              <button
+                onClick={() => setIsAddAssetOpen(true)}
+                className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white shadow-lg cursor-pointer"
               >
-                <div>
-                  {/* Top bar: Asset Tag & Status */}
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="text-xs font-mono font-bold text-purple-300 bg-purple-950/60 px-2.5 py-1 rounded-lg border border-purple-800/40">
-                      {asset.assetTag}
-                    </span>
-                    {getStatusBadge(asset.status)}
-                  </div>
+                + Register First Asset
+              </button>
+            )}
+          </div>
+        )}
 
-                  {/* Asset Image preview if available */}
-                  {asset.imageUrl && (
-                    <div className="mb-3 rounded-xl overflow-hidden aspect-video border border-indigo-950 relative">
-                      <img src={asset.imageUrl} alt={asset.name} className="w-full h-full object-cover" />
-                      <div className="absolute top-2 left-2 p-1.5 rounded-lg bg-black/60 backdrop-blur-sm">
-                        {getAssetCategoryIcon(asset.assetTag)}
+        {/* Assets Cards Grid */}
+        {filteredAssets.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredAssets.map((asset) => {
+              const dept = getDepartmentById(asset.departmentId);
+              const relatedIssues = issues.filter((i) => i.assetId === asset.id);
+
+              return (
+                <div
+                  key={asset.id}
+                  className="rounded-2xl glass-panel p-5 flex flex-col justify-between overflow-hidden relative border border-indigo-500/20"
+                >
+                  <div>
+                    {/* Top bar: Asset Tag & Status */}
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="p-1.5 rounded-lg bg-indigo-950/80 border border-indigo-800/40">
+                          {getAssetCategoryIcon(asset.assetTag)}
+                        </span>
+                        <span className="text-xs font-mono font-bold text-purple-300 bg-purple-950/60 px-2.5 py-1 rounded-lg border border-purple-800/40">
+                          {asset.assetTag}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {getStatusBadge(asset.status)}
+                        {isOfficialOrAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Are you sure you want to remove asset [${asset.assetTag}] ${asset.name}?`)) {
+                                deleteAsset(asset.id);
+                              }
+                            }}
+                            title="Delete Asset"
+                            className="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 border border-transparent hover:border-rose-500/30 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
-                  )}
 
-                  {/* Name & Model */}
-                  <h3 className="text-base font-bold text-white mb-1 leading-snug">
-                    {asset.name}
-                  </h3>
-                  <p className="text-xs text-slate-400 font-mono mb-4">
-                    Model: {asset.modelNumber || 'N/A'} &bull; SN: {asset.serialNumber || 'N/A'}
-                  </p>
+                    {/* Name & Model */}
+                    <h3 className="text-sm font-bold text-white mb-1 leading-snug">
+                      {asset.name}
+                    </h3>
+                    {asset.modelNumber && (
+                      <p className="text-xs text-slate-400 font-mono mb-3">
+                        Model: {asset.modelNumber}
+                      </p>
+                    )}
 
-                  {/* Location Info */}
-                  <div className="p-3 rounded-xl bg-[#070a1a]/70 border border-indigo-950/70 space-y-1.5 text-xs text-slate-300 mb-4">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                      <span className="truncate">{loc?.building} &bull; {loc?.room}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-slate-400">
-                      <Building2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                      <span className="truncate">{dept?.name}</span>
+                    {/* Location Info */}
+                    <div className="p-3 rounded-xl bg-[#070a1a]/70 border border-indigo-950/70 space-y-1.5 text-xs text-slate-300 mb-4">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                        <span className="truncate">{asset.locationId || 'Main Campus'}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-slate-400">
+                        <Building2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                        <span className="truncate">{dept?.name || 'Facilities'}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Footer / Health Summary */}
-                <div className="pt-3 border-t border-indigo-950/80 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5 text-slate-400">
-                    <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Last Serviced: {asset.lastServicedAt}</span>
+                  {/* Footer */}
+                  <div className="pt-3 border-t border-indigo-950/80 flex items-center justify-between text-xs text-slate-400">
+                    <span>Installed: {asset.installedAt || 'N/A'}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                      asset.reportedIssuesCount > 0
+                        ? 'bg-amber-950/60 text-amber-300 border border-amber-500/30'
+                        : 'bg-slate-900 text-slate-400'
+                    }`}>
+                      {asset.reportedIssuesCount} logged
+                    </span>
                   </div>
-
-                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                    asset.reportedIssuesCount > 0
-                      ? 'bg-amber-950/60 text-amber-300 border border-amber-500/30'
-                      : 'bg-emerald-950/60 text-emerald-300'
-                  }`}>
-                    {asset.reportedIssuesCount} issue{asset.reportedIssuesCount !== 1 ? 's' : ''} logged
-                  </span>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
       </main>
+
+      {/* Add Asset Modal */}
+      {isAddAssetOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="relative w-full max-w-md bg-[#0a0f24] border border-indigo-500/30 rounded-2xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-indigo-950">
+              <div className="flex items-center gap-2 text-white font-bold text-sm">
+                <Box className="w-4 h-4 text-purple-400" />
+                Register Campus Asset
+              </div>
+              <button
+                onClick={() => setIsAddAssetOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddAsset} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-300 mb-1">
+                  Equipment / Asset Name <span className="text-purple-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Epson EB-2250U Projector"
+                  value={newAssetName}
+                  onChange={(e) => setNewAssetName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-[#070a1a] border border-indigo-950 text-white placeholder-slate-500 focus:border-purple-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-300 mb-1">
+                  Asset Tag / Serial ID <span className="text-purple-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. PRJ-CS-201"
+                  value={newAssetTag}
+                  onChange={(e) => setNewAssetTag(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-[#070a1a] border border-indigo-950 text-white placeholder-slate-500 focus:border-purple-500 outline-none uppercase font-mono"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Department <span className="text-purple-400">*</span>
+                  </label>
+                  <select
+                    value={newAssetDept}
+                    onChange={(e) => setNewAssetDept(e.target.value)}
+                    className="w-full px-2.5 py-2 rounded-xl bg-[#070a1a] border border-indigo-950 text-slate-300 focus:border-purple-500 outline-none"
+                  >
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.code}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Room / Lab
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. CS 201"
+                    value={newAssetLocation}
+                    onChange={(e) => setNewAssetLocation(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-[#070a1a] border border-indigo-950 text-white placeholder-slate-500 focus:border-purple-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-300 mb-1">
+                  Model Number (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. EB-2250U"
+                  value={newAssetModel}
+                  onChange={(e) => setNewAssetModel(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-[#070a1a] border border-indigo-950 text-white placeholder-slate-500 focus:border-purple-500 outline-none"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-indigo-950 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddAssetOpen(false)}
+                  className="px-3.5 py-2 rounded-xl text-slate-400 hover:text-white cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold cursor-pointer"
+                >
+                  Save Asset
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

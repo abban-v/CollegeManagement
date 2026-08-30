@@ -14,11 +14,13 @@ build/
 dist/
 */dist/
 
-# Environment Variables
+# Environment Variables & Secrets
 .env
 .env*.local
 *.env
 *.env.local
+client_secret*.json
+*.json.secret
 
 # Logs
 npm-debug.log*

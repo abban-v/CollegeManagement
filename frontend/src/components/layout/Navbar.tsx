@@ -33,7 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenReportModal }) => {
   const navLinks = [
     { href: '/', label: 'Live Issues', icon: Layers },
     { href: '/assets', label: 'Campus Assets', icon: Box },
-    ...(currentUser?.role === 'ADMIN' || currentUser?.role === 'OFFICIAL'
+    ...(currentUser?.role === 'ADMIN' || currentUser?.role === 'OFFICIAL' || currentUser?.role === 'MODERATOR'
       ? [{ href: '/admin', label: 'Triage & Moderation', icon: BarChart3 }]
       : []),
   ];
@@ -59,10 +59,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenReportModal }) => {
                   <div className="flex items-center gap-1.5">
                     <span className="font-extrabold text-lg tracking-tight text-white">SLASH<span className="text-purple-400">FORGE</span></span>
                     <span className="text-[10px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800/60">
-                      CAMPUS
+                      CET
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400 hidden sm:block">Asset & Issue Health Monitor</p>
+                  <p className="text-[11px] text-slate-400 hidden sm:block">Campus Infrastructure & Resolution Portal</p>
                 </div>
               </Link>
 
@@ -167,7 +167,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenReportModal }) => {
                           <span>Asset Registry</span>
                         </Link>
 
-                        {(currentUser.role === 'ADMIN' || currentUser.role === 'OFFICIAL') && (
+                        {(currentUser.role === 'ADMIN' || currentUser.role === 'OFFICIAL' || currentUser.role === 'MODERATOR') && (
                           <Link
                             href="/admin"
                             onClick={() => setIsProfileMenuOpen(false)}
