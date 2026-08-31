@@ -334,7 +334,7 @@ export default function IssueDetailPage() {
                 </button>
               )}
 
-              {issue.status !== 'RESOLUTION_SUBMITTED' && issue.status !== 'VERIFIED' && (
+              {(issue.status === 'REPORTED' || issue.status === 'UNDER_REVIEW' || issue.status === 'IN_PROGRESS' || issue.status === 'REOPENED') && (
                 <button
                   onClick={() => setIsResolutionModalOpen(true)}
                   className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-xs font-bold text-white shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all flex items-center gap-1.5"

@@ -265,7 +265,7 @@ export default function AdminDashboardPage() {
                             <span className="text-slate-300 font-medium">{issue.assigneeName || 'Unassigned'}</span>
                           </td>
                           <td className="py-3.5 text-right space-x-2">
-                            {issue.status !== 'VERIFIED' && issue.status !== 'RESOLUTION_SUBMITTED' ? (
+                            {(issue.status === 'REPORTED' || issue.status === 'UNDER_REVIEW' || issue.status === 'IN_PROGRESS' || issue.status === 'REOPENED') ? (
                               <button
                                 onClick={() => setSelectedIssueForProof({ id: issue.id, title: issue.title })}
                                 className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] transition-colors"
