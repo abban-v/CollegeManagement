@@ -19,6 +19,7 @@
       radial-gradient(at 100% 0%, rgba(49, 16, 80, 0.35) 0px, transparent 50%),
       radial-gradient(at 50% 100%, rgba(15, 23, 42, 0.8) 0px, transparent 50%);
     background-attachment: fixed;
+    overflow-x: hidden;
   }
 }
 
@@ -41,31 +42,106 @@
   background: rgba(168, 85, 247, 0.6);
 }
 
+/* ─── Glowing & Ambient Idle Keyframe Animations ───────────────────────────── */
+
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translateY(-20px) rotate(3deg) scale(1.04);
+  }
+}
+
+@keyframes float-reverse {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translateY(22px) rotate(-3deg) scale(1.05);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.35;
+    filter: blur(80px);
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    filter: blur(100px);
+    transform: scale(1.12);
+  }
+}
+
+@keyframes aurora-wave {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes soft-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-float-slow {
+  animation: float-slow 12s ease-in-out infinite;
+}
+
+.animate-float-reverse {
+  animation: float-reverse 14s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 8s ease-in-out infinite;
+}
+
+.animate-aurora {
+  background-size: 200% 200%;
+  animation: aurora-wave 15s ease infinite;
+}
+
 /* Glow and gradient effects */
 .glow-purple {
-  box-shadow: 0 0 25px -5px rgba(168, 85, 247, 0.25);
+  box-shadow: 0 0 30px -5px rgba(168, 85, 247, 0.35);
 }
 
 .glow-indigo {
-  box-shadow: 0 0 25px -5px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 0 30px -5px rgba(99, 102, 241, 0.35);
+}
+
+.glow-ambient {
+  box-shadow: 0 0 50px -10px rgba(124, 58, 237, 0.25);
 }
 
 .glass-panel {
-  background: rgba(14, 19, 38, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(99, 102, 241, 0.18);
+  background: rgba(14, 19, 38, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(99, 102, 241, 0.2);
 }
 
 .glass-panel-hover {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass-panel-hover:hover {
-  background: rgba(18, 25, 48, 0.85);
-  border-color: rgba(168, 85, 247, 0.4);
-  box-shadow: 0 10px 30px -10px rgba(124, 58, 237, 0.2);
-  transform: translateY(-2px);
+  background: rgba(18, 25, 48, 0.88);
+  border-color: rgba(168, 85, 247, 0.45);
+  box-shadow: 0 12px 35px -10px rgba(124, 58, 237, 0.3), 0 0 15px rgba(99, 102, 241, 0.15);
+  transform: translateY(-3px);
 }
 
 .gradient-text {
@@ -76,10 +152,11 @@
 
 .gradient-button {
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .gradient-button:hover {
   background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
-  box-shadow: 0 0 20px rgba(124, 58, 237, 0.4);
+  box-shadow: 0 0 25px rgba(124, 58, 237, 0.5);
+  transform: translateY(-1px);
 }

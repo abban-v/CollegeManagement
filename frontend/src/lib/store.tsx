@@ -416,11 +416,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (backendRes.data) {
         const serverIssue = mapBackendIssueToFrontend(backendRes.data);
-        setIssues((prev) => prev.map((i) => (i.id === newIssueId ? serverIssue : i)));
+        setIssues((prev) => [serverIssue, ...prev.filter((i) => i.id !== newIssueId)]);
         return serverIssue;
+      } else if (backendRes.error) {
+        console.error('Backend issue creation error:', backendRes.error);
+        alert(`Issue created locally, but could not sync with database: ${backendRes.error}`);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.warn('Backend issue creation sync error:', e);
+      alert(`Could not sync issue with server: ${e?.message || 'Network error'}`);
     }
 
     return localIssue;

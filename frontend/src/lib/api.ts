@@ -69,7 +69,7 @@ async function apiFetch<T>(
 export const apiClient = {
   // ─── Authentication ────────────────────────────────────────────────────────
 
-  async googleAuth(params: { credential?: string; email?: string; name?: string }) {
+  async googleAuth(params: { credential?: string; email?: string; name?: string; avatarUrl?: string }) {
     return apiFetch<AuthUser & { session: { sessionId: string; expiresAt: string } }>(
       '/auth/google',
       { method: 'POST', body: JSON.stringify(params) }

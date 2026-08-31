@@ -146,10 +146,15 @@ export default function IssueDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#060813] text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-[#060813] text-slate-100 flex flex-col relative overflow-hidden">
+      {/* Dynamic Glowing Idle Ambient Orbs */}
+      <div className="absolute top-10 left-10 w-[500px] h-[500px] bg-gradient-to-tr from-indigo-600/18 via-purple-600/15 to-transparent rounded-full blur-[120px] pointer-events-none animate-float-slow animate-pulse-glow" />
+      <div className="absolute top-1/2 right-0 w-[550px] h-[550px] bg-gradient-to-bl from-purple-800/18 via-pink-600/12 to-transparent rounded-full blur-[130px] pointer-events-none animate-float-reverse animate-pulse-glow" />
+      <div className="absolute bottom-10 left-1/4 w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none animate-pulse-glow" />
+
       <Navbar />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         
         {/* Top bar with back link & Flag button */}
         <div className="flex items-center justify-between mb-4">

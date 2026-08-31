@@ -107,17 +107,22 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#060813] text-slate-100">
+    <div className="min-h-screen flex flex-col bg-[#060813] text-slate-100 relative overflow-hidden">
+      {/* Dynamic Glowing Idle Ambient Orbs */}
+      <div className="absolute top-10 left-10 w-[550px] h-[550px] bg-gradient-to-tr from-indigo-600/18 via-purple-600/15 to-transparent rounded-full blur-[120px] pointer-events-none animate-float-slow animate-pulse-glow" />
+      <div className="absolute top-1/2 right-0 w-[600px] h-[600px] bg-gradient-to-bl from-purple-800/18 via-pink-600/12 to-transparent rounded-full blur-[130px] pointer-events-none animate-float-reverse animate-pulse-glow" />
+      <div className="absolute bottom-10 left-1/3 w-[450px] h-[450px] bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none animate-pulse-glow" />
+
       {/* Top Navigation */}
       <Navbar onOpenReportModal={() => setIsReportModalOpen(true)} />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         
         {/* Hero & Live Stats Banner */}
-        <div className="relative rounded-3xl p-6 sm:p-8 mb-8 overflow-hidden border border-indigo-500/20 bg-gradient-to-br from-[#0e142e]/90 via-[#0d1024]/90 to-[#170e2b]/90 shadow-2xl backdrop-blur-xl">
-          <div className="absolute -top-24 -right-24 w-72 h-72 bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative rounded-3xl p-6 sm:p-8 mb-8 overflow-hidden border border-indigo-500/25 bg-gradient-to-br from-[#0e142e]/95 via-[#0d1024]/95 to-[#170e2b]/95 shadow-[0_15px_50px_-10px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
+          <div className="absolute -top-24 -right-24 w-80 h-80 bg-purple-600/25 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
+          <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-indigo-600/25 rounded-full blur-3xl pointer-events-none animate-float-slow" />
 
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
