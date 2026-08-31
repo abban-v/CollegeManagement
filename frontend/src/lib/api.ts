@@ -5,7 +5,8 @@
  * Uses `credentials: 'include'` to pass HTTP-only session cookies across origins.
  */
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+const rawBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+export const API_BASE_URL = rawBase.replace(/\/+$/, '');
 
 export interface ApiResponse<T> {
   data: T | null;
@@ -21,12 +22,24 @@ export interface AuthUser {
   role: 'STUDENT' | 'OFFICIAL' | 'MODERATOR' | 'ADMIN';
 }
 
+function buildApiUrl(endpoint: string): string {
+  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+    return endpoint;
+  }
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  let base = API_BASE_URL;
+  if (!base.includes('/api/v1')) {
+    base = `${base}/api/v1`;
+  }
+  return `${base}${cleanEndpoint}`;
+}
+
 async function apiFetch<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   try {
-    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+    const url = buildApiUrl(endpoint);
     const headers: Record<string, string> = {
       ...(options.headers as Record<string, string>),
     };

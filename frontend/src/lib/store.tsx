@@ -165,7 +165,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const refreshIssues = useCallback(async () => {
     try {
       const res = await apiClient.listIssues({ take: 100 });
-      if (res.data?.issues && res.data.issues.length > 0) {
+      if (res.data?.issues) {
         const mapped = res.data.issues.map(mapBackendIssueToFrontend);
         setIssues(mapped);
       }

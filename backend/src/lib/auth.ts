@@ -18,10 +18,11 @@ function generateSessionToken() {
 }
 
 function buildSessionCookieOptions(expiresAt: Date) {
+  const isProd = process.env.NODE_ENV === "production";
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax" as const,
+    secure: isProd,
+    sameSite: isProd ? ("none" as const) : ("lax" as const),
     path: "/",
     expires: expiresAt,
     maxAge: SESSION_TTL_SECONDS,
@@ -35,7 +36,15 @@ async function setSessionCookie(token: string, expiresAt: Date) {
 
 export async function clearSessionCookie() {
   const cookieStore = await cookies();
-  cookieStore.delete(SESSION_COOKIE_NAME);
+  const isProd = process.env.NODE_ENV === "production";
+  cookieStore.set(SESSION_COOKIE_NAME, "", {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? ("none" as const) : ("lax" as const),
+    path: "/",
+    expires: new Date(0),
+    maxAge: 0,
+  });
 }
 
 export async function createSession(user: AuthUserSnapshot): Promise<AuthSession> {
