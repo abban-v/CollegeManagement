@@ -9,14 +9,15 @@ export async function middleware(request: NextRequest) {
   const origin = request.headers.get("origin") || "";
   const configuredFrontend = process.env.FRONTEND_URL?.replace(/\/$/, "");
 
-  // Determine allowed origin for CORS
-  let allowedOrigin = configuredFrontend || "http://localhost:3001";
+  // Determine allowed origin for CORS (supports all Vercel previews and production)
+  let allowedOrigin = configuredFrontend || origin || "http://localhost:3001";
   if (origin) {
     if (
       origin === configuredFrontend ||
       origin === "http://localhost:3000" ||
       origin === "http://localhost:3001" ||
-      origin.endsWith(".vercel.app")
+      origin.endsWith(".vercel.app") ||
+      origin.includes("localhost")
     ) {
       allowedOrigin = origin;
     }
@@ -45,15 +46,21 @@ export async function middleware(request: NextRequest) {
     response.headers.set(key, value);
   });
 
-  // Apply rate limiting to API routes (skip for health check)
-  if (request.nextUrl.pathname.startsWith("/api/v1") && !request.nextUrl.pathname.includes("/health")) {
+  const pathname = request.nextUrl.pathname;
+
+  // Apply rate limiting selectively to mutating auth routes and prevent throttling on read/polling APIs
+  const isAuthMutation = pathname.startsWith("/api/v1/auth/login") || pathname.startsWith("/api/v1/auth/register");
+  const isExcludedFromThrottling = pathname.includes("/health") || pathname.startsWith("/api/v1/storage") || pathname.startsWith("/uploads");
+
+  if (pathname.startsWith("/api/v1") && !isExcludedFromThrottling) {
     const identifier = getRateLimitIdentifier(request);
 
     try {
-      const rateLimitResult = await checkRateLimit(identifier);
+      const limit = isAuthMutation ? 20 : 180;
+      const rateLimitResult = await checkRateLimit(identifier, limit, "1 m");
 
       // Add rate limit headers
-      const rlHeaders = getRateLimitHeaders(rateLimitResult);
+      const rlHeaders = getRateLimitHeaders(rateLimitResult, limit);
       Object.entries(rlHeaders).forEach(([key, value]) => {
         response.headers.set(key, value);
       });
@@ -63,7 +70,7 @@ export async function middleware(request: NextRequest) {
         return new NextResponse(
           JSON.stringify({
             data: null,
-            error: "Too many requests. Please try again later.",
+            error: "Too many requests. Please try again in a moment.",
             status: 429,
           }),
           {
@@ -76,7 +83,7 @@ export async function middleware(request: NextRequest) {
         );
       }
     } catch (error) {
-      console.error("Rate limiting middleware warning:", error);
+      console.warn("Rate limiting middleware warning:", error);
     }
   }
 

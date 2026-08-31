@@ -1,8 +1,10 @@
-// This file handles Prisma client initialization
+// This file handles Prisma client initialization and singleton management across serverless lambdas
 import { PrismaClient } from "@prisma/client";
 
 const prismaClientSingleton = () => {
-  return new PrismaClient();
+  return new PrismaClient({
+    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
+  });
 };
 
 declare global {
@@ -13,4 +15,5 @@ const prisma = globalThis.prisma ?? prismaClientSingleton();
 
 export default prisma;
 
-if (process.env.NODE_ENV !== "production") globalThis.prisma = prisma;
+// Always preserve singleton on globalThis across all environments (including production lambdas)
+globalThis.prisma = prisma;

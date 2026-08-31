@@ -293,7 +293,7 @@ export class IssueService {
     if (priority) where.priority = priority;
     if (reporterId) where.reporterId = reporterId;
     if (!includeRemoved) {
-      where.moderationStatus = { not: "REMOVED" };
+      where.NOT = { moderationStatus: "REMOVED" };
     }
 
     const [issues, total] = await Promise.all([

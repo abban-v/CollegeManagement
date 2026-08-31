@@ -27,7 +27,7 @@ const redis = (isValidUpstashUrl(process.env.UPSTASH_REDIS_REST_URL) && process.
 export const ratelimit = redis
   ? new Ratelimit({
       redis: redis,
-      limiter: Ratelimit.slidingWindow(10, "10 s"), // 10 requests per 10 seconds
+      limiter: Ratelimit.slidingWindow(120, "1 m"), // 120 requests per minute
       analytics: true,
       prefix: "@slashforge/ratelimit",
     })
@@ -41,14 +41,14 @@ const inMemoryStore = new Map<string, { count: number; resetTime: number }>();
  */
 function parseWindow(window: string): number {
   const match = window.match(/(\d+)\s*(s|m|h)/);
-  if (!match) return 10000; // default 10 seconds
+  if (!match) return 60000; // default 1 minute
   const value = parseInt(match[1], 10);
   const unit = match[2];
   switch (unit) {
     case "s": return value * 1000;
     case "m": return value * 60 * 1000;
     case "h": return value * 60 * 60 * 1000;
-    default: return 10000;
+    default: return 60000;
   }
 }
 
@@ -60,8 +60,8 @@ function parseWindow(window: string): number {
  */
 export async function checkRateLimit(
   identifier: string,
-  limit: number = 20,
-  window: string = "10 s"
+  limit: number = 120,
+  window: string = "1 m"
 ): Promise<{ success: boolean; remaining: number; reset: number }> {
   if (ratelimit) {
     try {
