@@ -1,19 +1,17 @@
 import React from 'react';
 import { IssueStatus, IssuePriority, ModerationStatus } from '@/lib/types';
-import { 
-  AlertCircle, 
-  Clock, 
-  PlayCircle, 
-  CheckCircle2, 
-  XCircle, 
+import {
+  AlertCircle,
+  Clock,
+  PlayCircle,
+  XCircle,
   RefreshCcw,
   Flame,
   AlertTriangle,
   Info,
   Send,
   ShieldCheck,
-  ShieldAlert,
-  Sparkles
+  ShieldAlert
 } from 'lucide-react';
 
 interface StatusBadgeProps {

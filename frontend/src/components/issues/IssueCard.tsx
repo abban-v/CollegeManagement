@@ -14,10 +14,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   ArrowRight,
-  ShieldAlert,
-  User,
-  Box,
-  Image as ImageIcon,
 } from 'lucide-react';
 
 interface IssueCardProps {

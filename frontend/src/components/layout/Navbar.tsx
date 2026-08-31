@@ -13,7 +13,6 @@ import {
   Bell,
   ChevronDown,
   LogOut,
-  User as UserIcon,
   Plus
 } from 'lucide-react';
 
