@@ -325,7 +325,7 @@ export default function IssueDetailPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
-              {issue.status !== 'IN_PROGRESS' && issue.status !== 'RESOLUTION_SUBMITTED' && issue.status !== 'VERIFIED' && (
+              {(issue.status === 'REPORTED' || issue.status === 'UNDER_REVIEW' || issue.status === 'REOPENED') && (
                 <button
                   onClick={() => updateStatus(issue.id, 'IN_PROGRESS', 'Official initiated work')}
                   className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-md transition-colors"
