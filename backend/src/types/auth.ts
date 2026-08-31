@@ -9,6 +9,7 @@ export interface AuthUserSnapshot {
 
 export interface AuthSession {
   sessionId: string;
+  token?: string;
   userId: string;
   email: string;
   name: string | null;

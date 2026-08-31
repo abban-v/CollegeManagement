@@ -1,3 +1,4 @@
+import { NextRequest } from "next/server";
 import { successResponse, errorResponse, sendJSON } from "@/lib/api";
 import { logoutCurrentSession } from "@/lib/auth";
 
@@ -6,9 +7,9 @@ import { logoutCurrentSession } from "@/lib/auth";
  *
  * Invalidates the current session both in the database and in the browser cookie.
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    await logoutCurrentSession();
+    await logoutCurrentSession(request);
 
     return sendJSON(successResponse({ message: "Logged out successfully" }, 200));
   } catch (error: unknown) {

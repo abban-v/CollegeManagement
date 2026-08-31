@@ -64,6 +64,7 @@ export async function createSession(user: AuthUserSnapshot): Promise<AuthSession
 
   return {
     sessionId: session.id,
+    token,
     userId: user.id,
     email: user.email,
     name: user.name,
@@ -72,17 +73,30 @@ export async function createSession(user: AuthUserSnapshot): Promise<AuthSession
   };
 }
 
-export async function getSession(): Promise<AuthSession | null> {
+export async function getSession(request?: NextRequest): Promise<AuthSession | null> {
   try {
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    let sessionToken: string | undefined;
+
+    // 1. Check Authorization Bearer header first (works across cross-domain Vercel deployments)
+    if (request) {
+      const authHeader = request.headers.get("authorization");
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        sessionToken = authHeader.substring(7).trim();
+      }
+    }
+
+    // 2. Check HTTP-only cookie
+    if (!sessionToken) {
+      const cookieStore = await cookies();
+      sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    }
 
     if (!sessionToken) {
       return null;
     }
 
     const tokenHash = hashSessionToken(sessionToken);
-    const session = await prisma.session.findUnique({
+    let session = await prisma.session.findUnique({
       where: { tokenHash },
       include: {
         user: {
@@ -95,6 +109,23 @@ export async function getSession(): Promise<AuthSession | null> {
         },
       },
     });
+
+    // Also support lookup by sessionId if raw token was passed as sessionId
+    if (!session) {
+      session = await prisma.session.findUnique({
+        where: { id: sessionToken },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              role: true,
+            },
+          },
+        },
+      });
+    }
 
     if (!session || session.expiresAt <= new Date()) {
       if (session) {
@@ -111,6 +142,7 @@ export async function getSession(): Promise<AuthSession | null> {
 
     return {
       sessionId: session.id,
+      token: sessionToken,
       userId: session.user.id,
       email: session.user.email,
       name: session.user.name,
@@ -122,16 +154,31 @@ export async function getSession(): Promise<AuthSession | null> {
   }
 }
 
-export async function logoutCurrentSession() {
+export async function logoutCurrentSession(request?: NextRequest) {
   try {
+    let sessionToken: string | undefined;
+    if (request) {
+      const authHeader = request.headers.get("authorization");
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        sessionToken = authHeader.substring(7).trim();
+      }
+    }
+
     const cookieStore = await cookies();
-    const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    if (!sessionToken) {
+      sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    }
 
     if (sessionToken) {
       const tokenHash = hashSessionToken(sessionToken);
       await prisma.session.deleteMany({
-        where: { tokenHash },
-      });
+        where: {
+          OR: [
+            { tokenHash },
+            { id: sessionToken },
+          ],
+        },
+      }).catch(() => {});
     }
   } finally {
     await clearSessionCookie().catch(() => {});
@@ -148,7 +195,7 @@ export function withAuth<TContext = Record<string, unknown>>(
   handler: AuthedRouteHandler<TContext>
 ) {
   return async (request: NextRequest, context: TContext) => {
-    const session = await getSession();
+    const session = await getSession(request);
 
     if (!session) {
       return sendJSON(errorResponse("Unauthorized", 401));
