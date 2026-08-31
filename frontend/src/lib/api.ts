@@ -34,6 +34,28 @@ function buildApiUrl(endpoint: string): string {
   return `${base}${cleanEndpoint}`;
 }
 
+/**
+ * Normalizes any image URL (local upload, relative path, base64 data URI, or external GCS URL)
+ * into a valid browser-loadable image source.
+ */
+export function formatImageUrl(url?: string): string {
+  if (!url) return '';
+  if (
+    url.startsWith('http://') ||
+    url.startsWith('https://') ||
+    url.startsWith('data:') ||
+    url.startsWith('blob:')
+  ) {
+    return url;
+  }
+  const apiOrigin = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+  const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+  if (cleanUrl.startsWith('/uploads/') || cleanUrl.startsWith('/api/v1/storage/')) {
+    return `${apiOrigin}${cleanUrl}`;
+  }
+  return `${apiOrigin}/uploads/${url}`;
+}
+
 async function apiFetch<T>(
   endpoint: string,
   options: RequestInit = {}

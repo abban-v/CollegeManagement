@@ -163,18 +163,27 @@ export async function uploadFile(options: UploadOptions): Promise<UploadResult> 
       fileSize: data.length,
     };
   } catch (gcsError) {
-    console.warn("GCS upload failed, saving to local public upload directory:", gcsError);
+    console.warn("GCS upload failed, saving to local/tmp storage:", gcsError);
 
-    // Local filesystem fallback
-    const localDir = path.join(process.cwd(), "public", "uploads", "evidence");
-    await fs.mkdir(localDir, { recursive: true });
-    
     const baseFilename = path.basename(storageKey);
-    const localFilePath = path.join(localDir, baseFilename);
-    await fs.writeFile(localFilePath, data);
+    const baseUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
+    let publicUrl = `${baseUrl}/uploads/evidence/${baseFilename}`;
 
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
-    const publicUrl = `${baseUrl}/uploads/evidence/${baseFilename}`;
+    try {
+      const localDir = path.join(process.cwd(), "public", "uploads", "evidence");
+      await fs.mkdir(localDir, { recursive: true });
+      const localFilePath = path.join(localDir, baseFilename);
+      await fs.writeFile(localFilePath, data);
+    } catch {
+      try {
+        const tmpDir = path.join("/tmp", "uploads", "evidence");
+        await fs.mkdir(tmpDir, { recursive: true });
+        const tmpFilePath = path.join(tmpDir, baseFilename);
+        await fs.writeFile(tmpFilePath, data);
+      } catch {
+        publicUrl = `data:${mimeType};base64,${data.toString("base64")}`;
+      }
+    }
 
     return {
       storageKey,
@@ -221,6 +230,13 @@ export async function fileExists(storageKey: string): Promise<boolean> {
     const baseFilename = path.basename(storageKey);
     const localFilePath = path.join(process.cwd(), "public", "uploads", "evidence", baseFilename);
     await fs.access(localFilePath);
+    return true;
+  } catch {}
+
+  try {
+    const baseFilename = path.basename(storageKey);
+    const tmpFilePath = path.join("/tmp", "uploads", "evidence", baseFilename);
+    await fs.access(tmpFilePath);
     return true;
   } catch {
     return false;
