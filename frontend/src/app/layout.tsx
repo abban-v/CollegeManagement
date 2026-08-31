@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AppProvider } from '@/lib/store';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 export const metadata: Metadata = {
   title: 'Slashforge | Campus Asset & Issue Intelligence',
@@ -21,6 +22,7 @@ export default function RootLayout({
         <AppProvider>
           {children}
         </AppProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
