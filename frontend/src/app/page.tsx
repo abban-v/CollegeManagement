@@ -210,7 +210,7 @@ export default function HomePage() {
               }`}
             >
               <Layers className="w-4 h-4" />
-              All Campus Issues ({issues.length})
+              All Campus Issues ({activeIssues.length})
             </button>
 
             <button
@@ -222,7 +222,7 @@ export default function HomePage() {
               }`}
             >
               <UserCheck className="w-4 h-4" />
-              Reported by Me ({issues.filter((i) => i.reporterId === currentUser.id).length})
+              Reported by Me ({activeIssues.filter((i) => i.reporterId === currentUser.id).length})
             </button>
 
             <button
@@ -234,7 +234,7 @@ export default function HomePage() {
               }`}
             >
               <ThumbsUp className="w-4 h-4" />
-              I&apos;m Affected ({issues.filter((i) => i.affectedUserIds.includes(currentUser.id)).length})
+              I&apos;m Affected ({activeIssues.filter((i) => i.affectedUserIds.includes(currentUser.id)).length})
             </button>
           </div>
         </div>

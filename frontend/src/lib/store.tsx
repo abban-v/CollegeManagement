@@ -342,6 +342,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     init();
   }, [refreshIssues, refreshAssets]);
 
+  // Live polling: automatically refresh issues & notifications every 6 seconds so community updates appear in real time
+  useEffect(() => {
+    if (!isInitialized || !currentUser) return;
+    const interval = setInterval(() => {
+      refreshIssues();
+      apiClient.getNotifications().then((notifRes) => {
+        if (notifRes.data?.notifications && notifRes.data.notifications.length > 0) {
+          setNotifications(notifRes.data.notifications.map((n: any) => ({
+            id: n.id,
+            userId: n.userId,
+            title: n.title,
+            body: n.body || n.message || '',
+            type: (n.type as any) || 'STATUS_CHANGED',
+            read: Boolean(n.read),
+            issueId: n.issueId,
+            createdAt: n.createdAt,
+          })));
+        }
+      }).catch(() => {});
+    }, 6000);
+
+    return () => clearInterval(interval);
+  }, [isInitialized, currentUser, refreshIssues]);
+
   // Persist state changes to LocalStorage
   useEffect(() => {
     if (!isInitialized) return;
