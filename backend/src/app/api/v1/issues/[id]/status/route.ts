@@ -31,9 +31,9 @@ export const POST = withAuth(async (
     const isReporterOrParticipant = issue.reporterId === session.userId || issue.participants.some((p) => p.userId === session.userId);
 
     // Permission checks based on target status
-    if (toStatus === "IN_PROGRESS" || toStatus === "UNDER_REVIEW") {
+    if (toStatus === "IN_PROGRESS" || toStatus === "UNDER_REVIEW" || toStatus === "RESOLUTION_SUBMITTED") {
       if (!isStaff) {
-        return sendJSON(errorResponse("Only maintenance officials and admins can dispatch work", 403));
+        return sendJSON(errorResponse("Only maintenance officials and admins can dispatch or resolve work", 403));
       }
     } else if (toStatus === "VERIFIED" || toStatus === "REOPENED" || toStatus === "DISPUTED") {
       if (!isStaff && !isReporterOrParticipant) {

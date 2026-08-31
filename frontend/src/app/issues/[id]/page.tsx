@@ -7,6 +7,7 @@ import { Navbar } from '@/components/layout/Navbar';
 import { StatusBadge, PriorityBadge, ModerationBadge } from '@/components/ui/Badge';
 import { ResolutionProofModal } from '@/components/issues/ResolutionProofModal';
 import { ReopenModal } from '@/components/issues/ReopenModal';
+import { formatImageUrl } from '@/lib/api';
 import confetti from 'canvas-confetti';
 import {
   ArrowLeft,
@@ -325,22 +326,27 @@ export default function IssueDetailPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
-              {issue.status !== 'IN_PROGRESS' && issue.status !== 'RESOLUTION_SUBMITTED' && issue.status !== 'VERIFIED' && (
+              {issue.status !== 'IN_PROGRESS' && issue.status !== 'RESOLUTION_SUBMITTED' && issue.status !== 'VERIFIED' && issue.status !== 'CLOSED' && (
                 <button
-                  onClick={() => updateStatus(issue.id, 'IN_PROGRESS', 'Official initiated work')}
-                  className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-md transition-colors"
+                  onClick={async () => {
+                    const ok = await updateStatus(issue.id, 'IN_PROGRESS', 'Official initiated work');
+                    if (ok) {
+                      await fetchIssueDetail(issue.id);
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-md transition-colors cursor-pointer"
                 >
                   Start Work (In Progress)
                 </button>
               )}
 
-              {issue.status !== 'RESOLUTION_SUBMITTED' && issue.status !== 'VERIFIED' && (
+              {issue.status !== 'RESOLUTION_SUBMITTED' && issue.status !== 'VERIFIED' && issue.status !== 'CLOSED' && (
                 <button
                   onClick={() => setIsResolutionModalOpen(true)}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-xs font-bold text-white shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-xs font-bold text-white shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  Submit Resolution Proof
+                  {issue.status === 'IN_PROGRESS' ? 'Complete & Submit Proof' : 'Submit Resolution Proof'}
                 </button>
               )}
             </div>
@@ -372,22 +378,24 @@ export default function IssueDetailPage() {
               </div>
 
               {/* Uploaded Proof Photo */}
-              <div className="shrink-0">
-                <p className="text-[11px] font-semibold text-emerald-300 mb-1.5">Official Completion Evidence:</p>
-                <div className="relative w-48 h-32 rounded-xl overflow-hidden border border-emerald-500/40 shadow-md">
-                  <img
-                    src={issue.resolutionProof.imageUrl}
-                    alt="Resolution Proof"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-2">
-                    <span className="text-[10px] text-white font-medium flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                      Visual Proof
-                    </span>
+              {issue.resolutionProof.imageUrl ? (
+                <div className="shrink-0">
+                  <p className="text-[11px] font-semibold text-emerald-300 mb-1.5">Official Completion Evidence:</p>
+                  <div className="relative w-48 h-32 rounded-xl overflow-hidden border border-emerald-500/40 shadow-md">
+                    <img
+                      src={formatImageUrl(issue.resolutionProof.imageUrl)}
+                      alt="Resolution Proof"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-2">
+                      <span className="text-[10px] text-white font-medium flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        Visual Proof
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : null}
 
             </div>
 
@@ -477,7 +485,7 @@ export default function IssueDetailPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {issue.attachments.map((imgUrl, idx) => (
                       <div key={idx} className="relative rounded-xl overflow-hidden border border-indigo-950/80 aspect-video">
-                        <img src={imgUrl} alt="Evidence" className="w-full h-full object-cover" />
+                        <img src={formatImageUrl(imgUrl)} alt="Evidence" className="w-full h-full object-cover" />
                       </div>
                     ))}
                   </div>

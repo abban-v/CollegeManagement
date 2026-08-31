@@ -446,31 +446,55 @@ export class IssueService {
    * Update this method when the lifecycle changes.
    */
   private isValidTransition(from: IssueStatus, to: IssueStatus): boolean {
+    if (from === to) return true;
+
     const validTransitions: Record<IssueStatus, IssueStatus[]> = {
       [IssueStatus.REPORTED]: [
         IssueStatus.UNDER_REVIEW,
-        IssueStatus.CLOSED, // Can close if duplicate/spam
+        IssueStatus.IN_PROGRESS,
+        IssueStatus.RESOLUTION_SUBMITTED,
+        IssueStatus.CLOSED,
       ],
       [IssueStatus.UNDER_REVIEW]: [
         IssueStatus.IN_PROGRESS,
+        IssueStatus.RESOLUTION_SUBMITTED,
         IssueStatus.CLOSED,
+        IssueStatus.REPORTED,
       ],
       [IssueStatus.IN_PROGRESS]: [
         IssueStatus.RESOLUTION_SUBMITTED,
+        IssueStatus.UNDER_REVIEW,
         IssueStatus.CLOSED,
       ],
       [IssueStatus.RESOLUTION_SUBMITTED]: [
         IssueStatus.VERIFIED,
         IssueStatus.DISPUTED,
+        IssueStatus.REOPENED,
+        IssueStatus.IN_PROGRESS,
+        IssueStatus.CLOSED,
       ],
       [IssueStatus.VERIFIED]: [
         IssueStatus.CLOSED,
         IssueStatus.DISPUTED,
         IssueStatus.REOPENED,
       ],
-      [IssueStatus.CLOSED]: [IssueStatus.REOPENED],
-      [IssueStatus.REOPENED]: [IssueStatus.IN_PROGRESS, IssueStatus.CLOSED],
-      [IssueStatus.DISPUTED]: [IssueStatus.REOPENED, IssueStatus.CLOSED],
+      [IssueStatus.CLOSED]: [
+        IssueStatus.REOPENED,
+        IssueStatus.IN_PROGRESS,
+      ],
+      [IssueStatus.REOPENED]: [
+        IssueStatus.IN_PROGRESS,
+        IssueStatus.UNDER_REVIEW,
+        IssueStatus.RESOLUTION_SUBMITTED,
+        IssueStatus.CLOSED,
+      ],
+      [IssueStatus.DISPUTED]: [
+        IssueStatus.IN_PROGRESS,
+        IssueStatus.UNDER_REVIEW,
+        IssueStatus.RESOLUTION_SUBMITTED,
+        IssueStatus.REOPENED,
+        IssueStatus.CLOSED,
+      ],
     };
 
     return validTransitions[from]?.includes(to) ?? false;

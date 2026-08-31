@@ -30,7 +30,7 @@ import {
   MOCK_STATUS_HISTORY,
   MOCK_NOTIFICATIONS,
 } from './mock-data';
-import { apiClient } from './api';
+import { apiClient, formatImageUrl } from './api';
 
 interface CreateIssueInput {
   title: string;
@@ -144,7 +144,7 @@ function mapBackendIssueToFrontend(item: any): Issue {
     possibleCause: item.suspectedCause || item.possibleCause,
     suggestedSolution: item.proposedSolution || item.suggestedSolution,
     occurredAt: item.occurredAt || new Date(item.createdAt).toLocaleString(),
-    attachments: Array.isArray(item.attachments) ? item.attachments : [],
+    attachments: Array.isArray(item.attachments) ? item.attachments.map((a: string) => formatImageUrl(a)) : [],
     affectedUserIds: item.participants?.map((p: any) => p.userId) || (item.reporterId ? [item.reporterId] : []),
     followerUserIds: item.followers?.map((f: any) => f.userId) || (item.reporterId ? [item.reporterId] : []),
     aiAnalysis: item.analysis ? {
@@ -160,12 +160,12 @@ function mapBackendIssueToFrontend(item: any): Issue {
       modelUsed: item.analysis.modelUsed || 'Gemini 2.5 Flash',
     } : undefined,
     resolutionProof: item.resolutions?.[0] ? {
-      imageUrl: item.resolutions[0].evidenceImages?.[0]?.storageKey || '',
+      imageUrl: formatImageUrl(item.resolutions[0].evidenceImages?.[0]?.storageKey || item.resolutionProof?.imageUrl),
       resolvedById: item.resolutions[0].resolvedById,
       resolvedByName: item.resolutions[0].resolvedBy?.name || 'Facilities Official',
       notes: item.resolutions[0].description,
       resolvedAt: item.resolutions[0].createdAt,
-    } : undefined,
+    } : (item.resolutionProof ? { ...item.resolutionProof, imageUrl: formatImageUrl(item.resolutionProof.imageUrl) } : undefined),
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
@@ -595,6 +595,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const targetIssue = issues.find((i) => i.id === issueId);
     if (!targetIssue || !currentUser) return false;
 
+    if (targetIssue.status === newStatus) {
+      return true;
+    }
+
     const previousStatus = targetIssue.status;
     const nowISO = new Date().toISOString();
     let resolutionProofObj: ResolutionProof | undefined = undefined;
@@ -608,6 +612,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         resolvedAt: nowISO,
       };
     }
+
+    const historyItem: IssueStatusHistory = {
+      id: `hist-${Date.now()}`,
+      issueId,
+      fromStatus: targetIssue.status,
+      toStatus: newStatus,
+      changedById: currentUser.id,
+      changedByName: currentUser.name,
+      changedByRole: currentUser.role,
+      reason: reason || (proof?.notes ? proof.notes : `Status changed to ${newStatus}`),
+      proofImageUrl: proof?.imageUrl,
+      createdAt: nowISO,
+    };
 
     setIssues((prev) =>
       prev.map((iss) => {
@@ -623,19 +640,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       })
     );
 
-    const historyItem: IssueStatusHistory = {
-      id: `hist-${Date.now()}`,
-      issueId,
-      fromStatus: targetIssue.status,
-      toStatus: newStatus,
-      changedById: currentUser.id,
-      changedByName: currentUser.name,
-      changedByRole: currentUser.role,
-      reason: reason || (proof?.notes ? proof.notes : `Status changed to ${newStatus}`),
-      proofImageUrl: proof?.imageUrl,
-      createdAt: nowISO,
-    };
-
     setStatusHistory((prev) => ({
       ...prev,
       [issueId]: [historyItem, ...(prev[issueId] || [])],
@@ -648,6 +652,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setIssues((prev) =>
           prev.map((iss) => (iss.id === issueId ? { ...iss, status: previousStatus } : iss))
         );
+        setStatusHistory((prev) => ({
+          ...prev,
+          [issueId]: (prev[issueId] || []).filter((h) => h.id !== historyItem.id),
+        }));
         return false;
       }
       return true;
@@ -656,6 +664,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIssues((prev) =>
         prev.map((iss) => (iss.id === issueId ? { ...iss, status: previousStatus } : iss))
       );
+      setStatusHistory((prev) => ({
+        ...prev,
+        [issueId]: (prev[issueId] || []).filter((h) => h.id !== historyItem.id),
+      }));
       return false;
     }
   };
@@ -666,17 +678,83 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     imageUrl: string,
     uploadId?: string
   ): Promise<boolean> => {
+    const targetIssue = issues.find((i) => i.id === issueId);
+    if (!targetIssue || !currentUser) return false;
+
+    const previousStatus = targetIssue.status;
+    const nowISO = new Date().toISOString();
+    const resolutionProofObj: ResolutionProof = {
+      imageUrl,
+      resolvedById: currentUser.id,
+      resolvedByName: currentUser.name,
+      notes,
+      resolvedAt: nowISO,
+    };
+
+    const historyItem: IssueStatusHistory = {
+      id: `hist-${Date.now()}`,
+      issueId,
+      fromStatus: targetIssue.status,
+      toStatus: 'RESOLUTION_SUBMITTED',
+      changedById: currentUser.id,
+      changedByName: currentUser.name,
+      changedByRole: currentUser.role,
+      reason: notes,
+      proofImageUrl: imageUrl,
+      createdAt: nowISO,
+    };
+
+    // Optimistic update
+    setIssues((prev) =>
+      prev.map((iss) => {
+        if (iss.id !== issueId) return iss;
+        return {
+          ...iss,
+          status: 'RESOLUTION_SUBMITTED',
+          resolutionProof: resolutionProofObj,
+          resolvedAt: nowISO,
+          updatedAt: nowISO,
+        };
+      })
+    );
+
+    setStatusHistory((prev) => ({
+      ...prev,
+      [issueId]: [historyItem, ...(prev[issueId] || [])],
+    }));
+
     try {
       if (uploadId) {
         const res = await apiClient.submitResolution(issueId, notes, [uploadId]);
         if (res.data) {
-          await updateStatus(issueId, 'RESOLUTION_SUBMITTED', notes, { imageUrl, notes });
           return true;
         }
+        console.warn('Backend submitResolution via uploadId error, trying fallback:', res.error);
       }
-      return await updateStatus(issueId, 'RESOLUTION_SUBMITTED', notes, { imageUrl, notes });
+
+      const res = await apiClient.transitionStatus(issueId, 'RESOLUTION_SUBMITTED', notes);
+      if (res.data) {
+        return true;
+      }
+
+      console.error('Failed to submit resolution on server:', res.error);
+      setIssues((prev) =>
+        prev.map((iss) => (iss.id === issueId ? { ...iss, status: previousStatus } : iss))
+      );
+      setStatusHistory((prev) => ({
+        ...prev,
+        [issueId]: (prev[issueId] || []).filter((h) => h.id !== historyItem.id),
+      }));
+      return false;
     } catch (e) {
       console.error('Submit resolution error:', e);
+      setIssues((prev) =>
+        prev.map((iss) => (iss.id === issueId ? { ...iss, status: previousStatus } : iss))
+      );
+      setStatusHistory((prev) => ({
+        ...prev,
+        [issueId]: (prev[issueId] || []).filter((h) => h.id !== historyItem.id),
+      }));
       return false;
     }
   };
@@ -703,19 +781,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       reopenedAt: nowISO,
     };
 
-    setIssues((prev) =>
-      prev.map((iss) =>
-        iss.id === issueId
-          ? {
-              ...iss,
-              status: 'REOPENED',
-              reopenHistory: [reopenEntry, ...(iss.reopenHistory || [])],
-              updatedAt: nowISO,
-            }
-          : iss
-      )
-    );
-
     const historyItem: IssueStatusHistory = {
       id: `hist-${Date.now()}`,
       issueId,
@@ -729,6 +794,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createdAt: nowISO,
     };
 
+    setIssues((prev) =>
+      prev.map((iss) =>
+        iss.id === issueId
+          ? {
+              ...iss,
+              status: 'REOPENED',
+              reopenHistory: [reopenEntry, ...(iss.reopenHistory || [])],
+              updatedAt: nowISO,
+            }
+          : iss
+      )
+    );
+
     setStatusHistory((prev) => ({
       ...prev,
       [issueId]: [historyItem, ...(prev[issueId] || [])],
@@ -741,6 +819,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setIssues((prev) =>
           prev.map((iss) => (iss.id === issueId ? { ...iss, status: previousStatus } : iss))
         );
+        setStatusHistory((prev) => ({
+          ...prev,
+          [issueId]: (prev[issueId] || []).filter((h) => h.id !== historyItem.id),
+        }));
         return false;
       }
       return true;
@@ -749,6 +831,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIssues((prev) =>
         prev.map((iss) => (iss.id === issueId ? { ...iss, status: previousStatus } : iss))
       );
+      setStatusHistory((prev) => ({
+        ...prev,
+        [issueId]: (prev[issueId] || []).filter((h) => h.id !== historyItem.id),
+      }));
       return false;
     }
   };
