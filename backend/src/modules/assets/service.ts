@@ -11,7 +11,7 @@ export class AssetService {
     skip?: number;
     take?: number;
   }) {
-    const where: any = {};
+    const where: import("@prisma/client").Prisma.AssetWhereInput = {};
 
     if (params?.departmentId) {
       where.departmentId = params.departmentId;
@@ -100,7 +100,7 @@ export class AssetService {
   }
 
   async updateAsset(id: string, input: UpdateAssetInput) {
-    const data: any = {};
+    const data: import("@prisma/client").Prisma.AssetUpdateInput = {};
     if (input.name !== undefined) data.name = input.name;
     if (input.assetTag !== undefined) data.assetTag = input.assetTag.toUpperCase().trim();
     if (input.category !== undefined) data.category = input.category;

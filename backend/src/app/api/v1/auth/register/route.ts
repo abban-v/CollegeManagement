@@ -43,7 +43,7 @@ const RegisterSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, name, role } = RegisterSchema.parse(body);
+    const { email, password, name } = RegisterSchema.parse(body);
 
     const normalizedEmail = email.toLowerCase().trim();
 

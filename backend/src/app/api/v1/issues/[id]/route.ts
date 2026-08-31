@@ -108,8 +108,7 @@ export const PATCH = withAuth(async (
  */
 export const DELETE = withRole("MODERATOR", "ADMIN")(async (
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-  _session
+  { params }: { params: Promise<{ id: string }> }
 ) => {
   try {
     const { id } = await params;

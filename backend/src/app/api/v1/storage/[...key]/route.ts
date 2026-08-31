@@ -74,7 +74,7 @@ export async function GET(
         "Access-Control-Allow-Origin": "*",
       },
     });
-  } catch (error) {
+  } catch {
     return new NextResponse("File not found", {
       status: 404,
       headers: {
