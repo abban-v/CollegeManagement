@@ -155,9 +155,13 @@ export interface Issue {
 export interface IssueComment {
   id: string;
   issueId: string;
-  authorId: string;
-  authorName: string;
-  authorRole: UserRole;
+  authorId?: string;
+  userId?: string;
+  authorName?: string;
+  userName?: string;
+  authorRole?: UserRole;
+  userRole?: UserRole;
+  content?: string;
   body: string;
   attachments?: string[];
   createdAt: string;
@@ -168,9 +172,9 @@ export interface IssueStatusHistory {
   issueId: string;
   fromStatus: IssueStatus;
   toStatus: IssueStatus;
-  changedById: string;
-  changedByName: string;
-  changedByRole: UserRole;
+  changedById?: string;
+  changedByName?: string;
+  changedByRole?: UserRole;
   reason?: string;
   proofImageUrl?: string;
   createdAt: string;

@@ -48,12 +48,22 @@ export class IssueService {
           location: input.location,
           suspectedCause: input.suspectedCause,
           proposedSolution: input.proposedSolution,
+          attachments: input.attachments || [],
+          assetId: input.assetId,
           reporterId,
           priority: IssuePriority.MEDIUM,
           moderationStatus: ModerationStatus.NORMAL,
           status: IssueStatus.REPORTED,
         },
       });
+
+      // If attached to an asset, increment reported issues on asset
+      if (input.assetId) {
+        await tx.asset.update({
+          where: { id: input.assetId },
+          data: { reportedIssuesCount: { increment: 1 } },
+        }).catch(() => {});
+      }
 
       // Create a PENDING analysis record
       await tx.aIAnalysis.create({
@@ -87,7 +97,7 @@ export class IssueService {
           issueId: issue.id,
           action: "CREATE",
           actor: reporterId,
-          details: JSON.stringify({ title: input.title }),
+          details: JSON.stringify({ title: input.title, assetId: input.assetId }),
         },
       });
 
@@ -102,16 +112,31 @@ export class IssueService {
       return issue;
     });
 
-    // Run AI analysis asynchronously (after issue is created).
-    // If this fails, the issue still exists with PENDING analysis.
-    // In a serverless environment, we cannot reliably run background
-    // workers, so we run it in the same request but after the issue
-    // is committed. This ensures the issue is never lost.
-    this.runAnalysisAsync(issue.id, input).catch((error) => {
-      console.error("Async AI analysis failed:", error);
+    // Run AI analysis immediately so the caller receives the enriched issue
+    try {
+      await this.runAnalysisAsync(issue.id, input);
+    } catch (error) {
+      console.warn("Inline AI analysis error:", error);
+    }
+
+    const enriched = await prisma.issue.findUnique({
+      where: { id: issue.id },
+      include: {
+        reporter: { select: { id: true, name: true } },
+        analysis: true,
+        asset: true,
+        followers: true,
+        participants: true,
+        resolutions: {
+          include: {
+            resolvedBy: { select: { id: true, name: true } },
+            evidenceImages: true,
+          },
+        },
+      },
     });
 
-    return issue;
+    return enriched || issue;
   }
 
   /**
@@ -201,6 +226,7 @@ export class IssueService {
           },
         },
         analysis: true,
+        asset: true,
         embedding: true,
         statusHistory: {
           orderBy: { createdAt: "desc" },
@@ -258,13 +284,17 @@ export class IssueService {
     status?: IssueStatus;
     priority?: IssuePriority;
     reporterId?: string;
+    includeRemoved?: boolean;
   } = {}) {
-    const { skip = 0, take = 20, status, priority, reporterId } = options;
+    const { skip = 0, take = 20, status, priority, reporterId, includeRemoved = false } = options;
 
     const where: Prisma.IssueWhereInput = {};
     if (status) where.status = status;
     if (priority) where.priority = priority;
     if (reporterId) where.reporterId = reporterId;
+    if (!includeRemoved) {
+      where.moderationStatus = { not: "REMOVED" };
+    }
 
     const [issues, total] = await Promise.all([
       prisma.issue.findMany({
@@ -280,6 +310,7 @@ export class IssueService {
             },
           },
           analysis: true,
+          asset: true,
           followers: true,
           participants: true,
           resolutions: {
@@ -303,6 +334,8 @@ export class IssueService {
       issues,
       total,
       pages: Math.ceil(total / take),
+      skip,
+      take,
     };
   }
 
@@ -322,6 +355,7 @@ export class IssueService {
         ...(input.proposedSolution && {
           proposedSolution: input.proposedSolution,
         }),
+        ...(input.attachments && { attachments: input.attachments }),
         ...(input.priority && { priority: input.priority }),
       },
     });
@@ -429,7 +463,11 @@ export class IssueService {
         IssueStatus.VERIFIED,
         IssueStatus.DISPUTED,
       ],
-      [IssueStatus.VERIFIED]: [IssueStatus.CLOSED],
+      [IssueStatus.VERIFIED]: [
+        IssueStatus.CLOSED,
+        IssueStatus.DISPUTED,
+        IssueStatus.REOPENED,
+      ],
       [IssueStatus.CLOSED]: [IssueStatus.REOPENED],
       [IssueStatus.REOPENED]: [IssueStatus.IN_PROGRESS, IssueStatus.CLOSED],
       [IssueStatus.DISPUTED]: [IssueStatus.REOPENED, IssueStatus.CLOSED],
@@ -740,11 +778,7 @@ export class IssueService {
     }
 
     if (!this.isValidTransition(issue.status, IssueStatus.DISPUTED)) {
-      throw new Error(`Cannot transition from ${issue.status} to ${IssueStatus.DISPUTED}`);
-    }
-
-    if (!this.isValidTransition(IssueStatus.DISPUTED, IssueStatus.REOPENED)) {
-      throw new Error(`Cannot transition from ${IssueStatus.DISPUTED} to ${IssueStatus.REOPENED}`);
+      throw new Error(`Cannot dispute resolution when status is ${issue.status}`);
     }
 
     return await prisma.$transaction(async (tx) => {

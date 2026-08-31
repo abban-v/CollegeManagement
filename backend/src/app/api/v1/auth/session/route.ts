@@ -20,6 +20,7 @@ export async function GET() {
     const email = (session.email || "").toLowerCase().trim();
     const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "")
       .toLowerCase()
+      .replace(/[{}"']/g, "")
       .split(",")
       .map((e) => e.trim())
       .filter(Boolean);

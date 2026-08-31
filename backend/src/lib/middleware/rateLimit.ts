@@ -100,10 +100,13 @@ export async function checkRateLimit(
 /**
  * Get rate limit headers for response
  */
-export function getRateLimitHeaders(result: { success: boolean; remaining: number; reset: number }): Record<string, string> {
+export function getRateLimitHeaders(
+  result: { success: boolean; remaining: number; reset: number },
+  limit: number = 20
+): Record<string, string> {
   return {
-    "X-RateLimit-Limit": "20",
-    "X-RateLimit-Remaining": result.remaining.toString(),
+    "X-RateLimit-Limit": limit.toString(),
+    "X-RateLimit-Remaining": Math.max(0, result.remaining).toString(),
     "X-RateLimit-Reset": new Date(result.reset).toISOString(),
   };
 }

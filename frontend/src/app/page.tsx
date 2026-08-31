@@ -42,17 +42,22 @@ export default function HomePage() {
   }, [currentUser, isLoadingAuth, router]);
 
   // Calculate quick platform KPIs
-  const totalOpen = issues.filter((i) => i.status !== 'VERIFIED' && i.status !== 'CLOSED').length;
-  const criticalCount = issues.filter(
+  const activeIssues = useMemo(
+    () => issues.filter((i) => i.moderationStatus !== 'REMOVED'),
+    [issues]
+  );
+
+  const totalOpen = activeIssues.filter((i) => i.status !== 'VERIFIED' && i.status !== 'CLOSED').length;
+  const criticalCount = activeIssues.filter(
     (i) => (i.priority === 'CRITICAL' || i.priority === 'HIGH') && i.status !== 'VERIFIED' && i.status !== 'CLOSED'
   ).length;
-  const inProgressCount = issues.filter((i) => i.status === 'IN_PROGRESS' || i.status === 'RESOLUTION_SUBMITTED').length;
-  const resolvedCount = issues.filter((i) => i.status === 'VERIFIED').length;
+  const inProgressCount = activeIssues.filter((i) => i.status === 'IN_PROGRESS' || i.status === 'RESOLUTION_SUBMITTED').length;
+  const resolvedCount = activeIssues.filter((i) => i.status === 'VERIFIED').length;
 
   // Filter and sort issues
   const filteredIssues = useMemo(() => {
     if (!currentUser) return [];
-    return issues.filter((issue) => {
+    return activeIssues.filter((issue) => {
       // Tab view filter
       if (tabView === 'my_reported' && issue.reporterId !== currentUser.id) return false;
       if (tabView === 'my_affected' && !issue.affectedUserIds.includes(currentUser.id)) return false;
@@ -72,13 +77,19 @@ export default function HomePage() {
       }
 
       // Department filter
-      if (filters.departmentId !== 'ALL' && issue.departmentId !== filters.departmentId) {
-        return false;
+      if (filters.departmentId !== 'ALL') {
+        const matchDept =
+          issue.departmentId?.toLowerCase() === filters.departmentId.toLowerCase() ||
+          (issue as any).department?.toLowerCase() === filters.departmentId.toLowerCase();
+        if (!matchDept) return false;
       }
 
       // Category filter
-      if (filters.categoryId !== 'ALL' && issue.categoryId !== filters.categoryId) {
-        return false;
+      if (filters.categoryId !== 'ALL') {
+        const matchCat =
+          issue.categoryId?.toLowerCase() === filters.categoryId.toLowerCase() ||
+          (issue as any).category?.toLowerCase() === filters.categoryId.toLowerCase();
+        if (!matchCat) return false;
       }
 
       return true;

@@ -109,10 +109,9 @@ export const PATCH = withAuth(async (
 export const DELETE = withRole("MODERATOR", "ADMIN")(async (
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
-  session
+  _session
 ) => {
   try {
-    void session;
     const { id } = await params;
 
     const updated = await issueService.deleteIssue(id);

@@ -2,33 +2,14 @@ import { NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { issueService } from "@/modules/issues/service";
 import { IssueStatusTransitionSchema } from "@/lib/validation/issue";
-import { getErrorMessage, successResponse, errorResponse, sendJSON } from "@/lib/api";
-import { withRole } from "@/lib/auth";
+import { errorResponse, getErrorMessage, sendJSON, successResponse } from "@/lib/api";
+import { withAuth } from "@/lib/auth";
+import prisma from "@/lib/db";
 
-/**
- * POST /api/v1/issues/:id/status
- * 
- * Transition issue to a new status
- * 
- * Request body:
- * {
- *   toStatus: IssueStatus
- *   reason?: string
- * }
- * 
- * This is a separate endpoint from PATCH because:
- * - Status transitions are special operations with validation
- * - They create audit logs and status history automatically
- * - They have their own authorization rules
- * - They're conceptually different from field updates
- * 
- * Authentication: Required
- * Authorization: OFFICIAL, MODERATOR, ADMIN (depends on status)
- */
-export const POST = withRole("OFFICIAL", "MODERATOR", "ADMIN")(async (
+export const POST = withAuth(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
-  _session
+  session
 ) => {
   try {
     const { id } = await params;
@@ -37,12 +18,39 @@ export const POST = withRole("OFFICIAL", "MODERATOR", "ADMIN")(async (
     const body = await request.json();
     const { toStatus, reason } = IssueStatusTransitionSchema.parse(body);
 
+    const issue = await prisma.issue.findUnique({
+      where: { id },
+      include: { participants: true },
+    });
+
+    if (!issue) {
+      return sendJSON(errorResponse("Issue not found", 404));
+    }
+
+    const isStaff = session.role === "OFFICIAL" || session.role === "MODERATOR" || session.role === "ADMIN";
+    const isReporterOrParticipant = issue.reporterId === session.userId || issue.participants.some((p) => p.userId === session.userId);
+
+    // Permission checks based on target status
+    if (toStatus === "IN_PROGRESS" || toStatus === "UNDER_REVIEW") {
+      if (!isStaff) {
+        return sendJSON(errorResponse("Only maintenance officials and admins can dispatch work", 403));
+      }
+    } else if (toStatus === "VERIFIED" || toStatus === "REOPENED" || toStatus === "DISPUTED") {
+      if (!isStaff && !isReporterOrParticipant) {
+        return sendJSON(errorResponse("Only the reporter or affected members can verify or reopen this issue", 403));
+      }
+    } else if (toStatus === "CLOSED") {
+      if (!isStaff && !isReporterOrParticipant) {
+        return sendJSON(errorResponse("Forbidden", 403));
+      }
+    }
+
     // Attempt status transition
     const updated = await issueService.transitionStatus(
       id,
       toStatus,
-      reason || "No reason provided",
-      _session.userId
+      reason || "Status updated",
+      session.userId
     );
 
     return sendJSON(

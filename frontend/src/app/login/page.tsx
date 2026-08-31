@@ -78,6 +78,8 @@ export default function LoginPage() {
 
                 // Exchange with backend session API
                 const authRes = await apiClient.googleAuth({
+                  accessToken: tokenResponse.access_token,
+                  credential: tokenResponse.id_token,
                   email: userData.email,
                   name: userData.name,
                   avatarUrl: userData.picture,

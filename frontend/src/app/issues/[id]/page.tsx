@@ -59,6 +59,7 @@ export default function IssueDetailPage() {
     getCategoryById,
     getAssetById,
     reportIssueContent,
+    fetchIssueDetail,
   } = useApp();
 
   const [commentText, setCommentText] = useState('');
@@ -67,12 +68,20 @@ export default function IssueDetailPage() {
   const [isFlagModalOpen, setIsFlagModalOpen] = useState(false);
   const [flagReason, setFlagReason] = useState<FlagReason>('spam');
   const [flagDetails, setFlagDetails] = useState('');
+  const [isFetchingDetail, setIsFetchingDetail] = useState(false);
 
   React.useEffect(() => {
     if (!isLoadingAuth && !currentUser) {
       router.push('/login');
     }
   }, [currentUser, isLoadingAuth, router]);
+
+  React.useEffect(() => {
+    if (issueId) {
+      setIsFetchingDetail(true);
+      fetchIssueDetail(issueId).finally(() => setIsFetchingDetail(false));
+    }
+  }, [issueId, fetchIssueDetail]);
 
   if (isLoadingAuth || !currentUser) {
     return (
@@ -87,6 +96,14 @@ export default function IssueDetailPage() {
   const historyList = statusHistory[issueId] || [];
 
   if (!issue) {
+    if (isFetchingDetail) {
+      return (
+        <div className="min-h-screen bg-[#060813] flex items-center justify-center text-purple-400">
+          <div className="animate-spin w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full" />
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-[#060813] text-slate-100 flex flex-col">
         <Navbar />
@@ -238,7 +255,9 @@ export default function IssueDetailPage() {
               <span className="text-[11px] text-slate-400 flex items-center gap-1">
                 <Building2 className="w-3.5 h-3.5 text-purple-400" /> Department
               </span>
-              <p className="font-semibold text-slate-200 mt-0.5">{dept?.name} ({dept?.code})</p>
+              <p className="font-semibold text-slate-200 mt-0.5">
+                {dept ? (dept.code && dept.code !== dept.name ? `${dept.name} (${dept.code})` : dept.name) : (issue.departmentId || 'Campus Facilities')}
+              </p>
             </div>
 
             <div>
@@ -246,9 +265,9 @@ export default function IssueDetailPage() {
                 <MapPin className="w-3.5 h-3.5 text-indigo-400" /> Location / Room
               </span>
               <p className="font-semibold text-slate-200 mt-0.5">
-                {loc?.building} &bull; {loc?.room}
+                {loc ? `${loc.building} • ${loc.room}` : (issue.locationDetails || issue.locationId || 'Main Campus')}
               </p>
-              {issue.locationDetails && (
+              {issue.locationDetails && loc && (
                 <p className="text-[11px] text-indigo-300/80 mt-0.5 font-medium">{issue.locationDetails}</p>
               )}
             </div>

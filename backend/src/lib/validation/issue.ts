@@ -40,6 +40,8 @@ export const CreateIssueSchema = z.object({
   location: z.string().optional(),
   suspectedCause: z.string().optional(),
   proposedSolution: z.string().optional(),
+  attachments: z.array(z.string()).optional(),
+  assetId: z.string().optional(),
 });
 
 export type CreateIssueInput = z.infer<typeof CreateIssueSchema>;
@@ -53,6 +55,8 @@ export const UpdateIssueSchema = z.object({
   location: z.string().optional(),
   suspectedCause: z.string().optional(),
   proposedSolution: z.string().optional(),
+  attachments: z.array(z.string()).optional(),
+  assetId: z.string().optional(),
   status: IssueStatusEnum.optional(),
   priority: IssuePriorityEnum.optional(),
 });

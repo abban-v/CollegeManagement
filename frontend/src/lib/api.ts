@@ -69,7 +69,7 @@ async function apiFetch<T>(
 export const apiClient = {
   // ─── Authentication ────────────────────────────────────────────────────────
 
-  async googleAuth(params: { credential?: string; email?: string; name?: string; avatarUrl?: string }) {
+  async googleAuth(params: { credential?: string; accessToken?: string; email?: string; name?: string; avatarUrl?: string }) {
     return apiFetch<AuthUser & { session: { sessionId: string; expiresAt: string } }>(
       '/auth/google',
       { method: 'POST', body: JSON.stringify(params) }
@@ -87,10 +87,10 @@ export const apiClient = {
    * Register a new account.
    * Backend returns the new user + session directly (not nested under a `user` key).
    */
-  async register(email: string, password: string, name?: string, role: string = 'STUDENT') {
+  async register(email: string, password: string, name?: string) {
     return apiFetch<AuthUser & { session: { sessionId: string; expiresAt: string } }>(
       '/auth/register',
-      { method: 'POST', body: JSON.stringify({ email, password, name, role }) }
+      { method: 'POST', body: JSON.stringify({ email, password, name }) }
     );
   },
 
@@ -115,7 +115,7 @@ export const apiClient = {
     if (params.priority && params.priority !== 'ALL') searchParams.set('priority', params.priority);
 
     const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
-    return apiFetch<{ issues: Array<any>; total: number; skip: number; take: number }>(
+    return apiFetch<{ issues: Array<any>; total: number; pages: number; skip: number; take: number }>(
       `/issues${query}`,
       { method: 'GET' }
     );
@@ -133,6 +133,7 @@ export const apiClient = {
     location?: string;
     suspectedCause?: string;
     proposedSolution?: string;
+    attachments?: string[];
   }) {
     return apiFetch<any>('/issues', { method: 'POST', body: JSON.stringify(data) });
   },
@@ -248,6 +249,57 @@ export const apiClient = {
 
   async markAllNotificationsRead() {
     return apiFetch<{ message: string; count: number }>('/notifications', { method: 'PATCH' });
+  },
+
+  // ─── Assets ───────────────────────────────────────────────────────────────
+
+  async listAssets(params: { departmentId?: string; category?: string; status?: string; search?: string; skip?: number; take?: number } = {}) {
+    const searchParams = new URLSearchParams();
+    if (params.departmentId) searchParams.set('departmentId', params.departmentId);
+    if (params.category) searchParams.set('category', params.category);
+    if (params.status && params.status !== 'ALL') searchParams.set('status', params.status);
+    if (params.search) searchParams.set('search', params.search);
+    if (params.skip) searchParams.set('skip', params.skip.toString());
+    if (params.take) searchParams.set('take', params.take.toString());
+
+    const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
+    return apiFetch<{ assets: Array<any>; total: number; skip: number; take: number }>(`/assets${query}`, {
+      method: 'GET',
+    });
+  },
+
+  async getAsset(id: string) {
+    return apiFetch<any>(`/assets/${id}`, { method: 'GET' });
+  },
+
+  async createAsset(data: {
+    name: string;
+    assetTag: string;
+    category: string;
+    departmentId: string;
+    locationId: string;
+    status?: string;
+    modelNumber?: string;
+    serialNumber?: string;
+    imageUrl?: string;
+  }) {
+    return apiFetch<any>('/assets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async updateAsset(id: string, data: any) {
+    return apiFetch<any>(`/assets/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteAsset(id: string) {
+    return apiFetch<{ message: string }>(`/assets/${id}`, {
+      method: 'DELETE',
+    });
   },
 
   // ─── File Upload ───────────────────────────────────────────────────────────

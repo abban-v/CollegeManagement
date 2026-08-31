@@ -30,10 +30,15 @@ export type IssueAnalysisResult = {
 };
 
 const CATEGORY_RULES = [
-  { category: "NETWORK", department: "IT", terms: ["wifi", "internet", "network", "router", "login", "server"] },
-  { category: "FACILITIES", department: "Facilities", terms: ["water", "leak", "light", "fan", "ac", "hvac", "door"] },
-  { category: "SAFETY", department: "Campus Safety", terms: ["fire", "smoke", "shock", "hazard", "injury", "broken glass"] },
-  { category: "ACADEMIC", department: "Academic Affairs", terms: ["classroom", "projector", "lab", "exam", "lecture"] },
+  { category: "Electrical & Power", department: "Electrical & Electronics", terms: ["power", "electricity", "wire", "switch", "light", "fuse", "shock", "circuit", "socket", "spark", "blackout", "tripping"] },
+  { category: "HVAC & Ventilation", department: "Campus Facilities & Maintenance", terms: ["ac", "air conditioner", "fan", "cooling", "ventilation", "heater", "temperature", "humidity", "exhaust"] },
+  { category: "Plumbing & Water", department: "Campus Facilities & Maintenance", terms: ["water", "leak", "pipe", "tap", "restroom", "washroom", "toilet", "drainage", "flood", "sink", "flush"] },
+  { category: "Lab Hardware & Computers", department: "Computer Science & Engineering", terms: ["computer", "pc", "lab", "monitor", "keyboard", "mouse", "oscilloscope", "equipment", "instrument", "cpu", "workstation", "ups"] },
+  { category: "Projectors & AV Systems", department: "Campus Facilities & Maintenance", terms: ["projector", "hdmi", "audio", "speaker", "display", "mic", "microphone", "av", "screen", "vga", "amplifier"] },
+  { category: "Furniture & Desks", department: "Campus Facilities & Maintenance", terms: ["desk", "bench", "chair", "table", "podium", "door", "window", "whiteboard", "blackboard", "lock", "handle"] },
+  { category: "General Infrastructure", department: "Civil Engineering", terms: ["road", "building", "paint", "civil", "pathway", "floor", "ceiling", "wall", "roof", "crack", "tiles", "stairs", "railing"] },
+  { category: "Network & IT", department: "Computer Science & Engineering", terms: ["wifi", "internet", "network", "router", "login", "server", "ethernet", "connection", "portal", "firewall", "dns"] },
+  { category: "Campus Safety", department: "Campus Facilities & Maintenance", terms: ["fire", "smoke", "shock", "hazard", "injury", "broken glass", "extinguisher", "alarm", "emergency"] },
 ];
 
 const PRIORITY_RULES = [

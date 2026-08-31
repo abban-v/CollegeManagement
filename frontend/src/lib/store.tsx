@@ -52,10 +52,11 @@ interface AppContextType {
   users: User[];
   isLoadingAuth: boolean;
   login: (email: string, password?: string) => Promise<User>;
-  loginWithGoogle: (email?: string) => Promise<User>;
   setUserFromAuthResponse: (userData: { id: string; email: string; name: string | null; role: string }) => User;
   logout: () => Promise<void>;
   refreshIssues: () => Promise<void>;
+  refreshAssets: () => Promise<void>;
+  fetchIssueDetail: (issueId: string) => Promise<Issue | undefined>;
   
   issues: Issue[];
   departments: Department[];
@@ -70,20 +71,20 @@ interface AppContextType {
   createIssue: (input: CreateIssueInput) => Promise<Issue>;
   toggleAffected: (issueId: string) => Promise<void>;
   toggleFollow: (issueId: string) => Promise<void>;
-  updateStatus: (issueId: string, newStatus: IssueStatus, reason?: string, proof?: { imageUrl: string; notes: string }) => boolean;
+  updateStatus: (issueId: string, newStatus: IssueStatus, reason?: string, proof?: { imageUrl: string; notes: string }) => Promise<boolean>;
   submitResolution: (issueId: string, notes: string, imageUrl: string, uploadId?: string) => Promise<boolean>;
-  verifyResolution: (issueId: string) => boolean;
+  verifyResolution: (issueId: string) => Promise<boolean>;
   disputeResolution: (issueId: string, reason: string, evidenceUrls?: string[]) => Promise<boolean>;
   reopenIssue: (issueId: string, reason: string, evidenceUrls?: string[]) => Promise<boolean>;
   assignIssue: (issueId: string, assigneeId: string, assigneeName: string) => void;
   addComment: (issueId: string, body: string, attachments?: string[]) => Promise<void>;
   reportIssueContent: (issueId: string, reason: IssueReport['reason'], details?: string) => Promise<void>;
   moderateIssue: (issueId: string, moderationStatus: ModerationStatus, reason?: string) => Promise<void>;
-  addAsset: (asset: Asset) => void;
-  deleteAsset: (assetId: string) => void;
+  addAsset: (asset: Asset) => Promise<void>;
+  deleteAsset: (assetId: string) => Promise<void>;
   
-  markNotificationRead: (id: string) => void;
-  markAllNotificationsRead: () => void;
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
   
   getAssetById: (id?: string) => Asset | undefined;
   getDepartmentById: (id?: string) => Department | undefined;
@@ -103,16 +104,36 @@ const STORAGE_KEYS = {
   REPORTS: 'slashforge_reports_v6',
 };
 
+function findCategoryIdentifier(nameOrId?: string): string {
+  if (!nameOrId) return 'cat-general';
+  const lower = nameOrId.toLowerCase().trim();
+  const found = MOCK_CATEGORIES.find((c) => c.id.toLowerCase() === lower || c.name.toLowerCase() === lower);
+  return found ? found.id : nameOrId;
+}
+
+function findDepartmentIdentifier(nameOrId?: string): string {
+  if (!nameOrId) return 'dept-facilities';
+  const lower = nameOrId.toLowerCase().trim();
+  const found = MOCK_DEPARTMENTS.find(
+    (d) => d.id.toLowerCase() === lower || d.name.toLowerCase() === lower || d.code.toLowerCase() === lower
+  );
+  return found ? found.id : nameOrId;
+}
+
 // Helper to adapt backend issue object to frontend Issue type
 function mapBackendIssueToFrontend(item: any): Issue {
+  const categoryId = findCategoryIdentifier(item.category);
+  const departmentId = findDepartmentIdentifier(item.department);
+
   return {
     id: item.id,
     title: item.title,
     description: item.description,
-    categoryId: item.category || 'cat-general',
-    departmentId: item.department || 'dept-facilities',
+    categoryId,
+    departmentId,
     locationId: item.location || 'loc-main',
     locationDetails: item.location || '',
+    assetId: item.assetId || undefined,
     reporterId: item.reporterId || 'unknown',
     reporterName: item.reporter?.name || item.reporterName || 'Campus Member',
     reporterEmail: item.reporter?.email || item.reporterEmail || '',
@@ -123,16 +144,16 @@ function mapBackendIssueToFrontend(item: any): Issue {
     possibleCause: item.suspectedCause || item.possibleCause,
     suggestedSolution: item.proposedSolution || item.suggestedSolution,
     occurredAt: item.occurredAt || new Date(item.createdAt).toLocaleString(),
-    attachments: item.attachments || [],
-    affectedUserIds: item.participants?.map((p: any) => p.userId) || [item.reporterId || 'user-1'],
-    followerUserIds: item.followers?.map((f: any) => f.userId) || [item.reporterId || 'user-1'],
+    attachments: Array.isArray(item.attachments) ? item.attachments : [],
+    affectedUserIds: item.participants?.map((p: any) => p.userId) || (item.reporterId ? [item.reporterId] : []),
+    followerUserIds: item.followers?.map((f: any) => f.userId) || (item.reporterId ? [item.reporterId] : []),
     aiAnalysis: item.analysis ? {
       category: item.analysis.category,
       suggestedDepartment: item.analysis.suggestedDepartment || 'Facilities',
       severity: item.analysis.severity,
       priority: item.analysis.aiPriority,
-      confidence: item.analysis.confidence || 0.94,
-      spamScore: item.analysis.spamScore || 0.01,
+      confidence: typeof item.analysis.confidence === 'number' ? item.analysis.confidence : 0.94,
+      spamScore: typeof item.analysis.spamScore === 'number' ? item.analysis.spamScore : 0.01,
       moderationFlags: item.analysis.moderationFlags || [],
       duplicateCandidates: item.analysis.duplicateCandidates || [],
       reasoning: item.analysis.reasoning || 'Automated AI categorization complete.',
@@ -174,6 +195,83 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Fetch real assets from backend
+  const refreshAssets = useCallback(async () => {
+    try {
+      const res = await apiClient.listAssets({ take: 100 });
+      if (res.data?.assets) {
+        setAssets(res.data.assets.map((a: any) => ({
+          id: a.id,
+          name: a.name,
+          assetTag: a.assetTag,
+          category: a.category,
+          departmentId: a.departmentId,
+          locationId: a.locationId,
+          status: a.status,
+          modelNumber: a.modelNumber || undefined,
+          serialNumber: a.serialNumber || undefined,
+          installedAt: a.installedAt || new Date().toISOString(),
+          lastServicedAt: a.lastServicedAt || new Date().toISOString(),
+          reportedIssuesCount: a.reportedIssuesCount || 0,
+          imageUrl: a.imageUrl || undefined,
+        })));
+      }
+    } catch (e) {
+      console.warn('Could not fetch assets from backend:', e);
+    }
+  }, []);
+
+  // Fetch complete issue details with live comments and status history
+  const fetchIssueDetail = useCallback(async (issueId: string): Promise<Issue | undefined> => {
+    try {
+      const res = await apiClient.getIssue(issueId);
+      if (res.data) {
+        const mapped = mapBackendIssueToFrontend(res.data);
+        setIssues((prev) => [mapped, ...prev.filter((i) => i.id !== issueId)]);
+
+        if (res.data.comments && Array.isArray(res.data.comments)) {
+          setComments((prev) => ({
+            ...prev,
+            [issueId]: res.data.comments.map((c: any) => ({
+              id: c.id,
+              issueId,
+              userId: c.authorId,
+              authorId: c.authorId,
+              userName: c.author?.name || 'Campus Member',
+              authorName: c.author?.name || 'Campus Member',
+              userRole: (c.author?.role as UserRole) || 'STUDENT',
+              authorRole: (c.author?.role as UserRole) || 'STUDENT',
+              content: c.content,
+              body: c.content,
+              createdAt: c.createdAt,
+            })),
+          }));
+        }
+
+        if (res.data.statusHistory && Array.isArray(res.data.statusHistory)) {
+          setStatusHistory((prev) => ({
+            ...prev,
+            [issueId]: res.data.statusHistory.map((h: any) => ({
+              id: h.id,
+              issueId,
+              fromStatus: h.fromStatus,
+              toStatus: h.toStatus,
+              changedById: 'system',
+              changedByName: 'Audit Log',
+              changedAt: h.createdAt,
+              reason: h.reason || 'Status updated',
+            })),
+          }));
+        }
+
+        return mapped;
+      }
+    } catch (e) {
+      console.warn('Could not fetch issue details:', e);
+    }
+    return undefined;
+  }, []);
+
   // Initialize auth session and data on load
   useEffect(() => {
     async function init() {
@@ -188,7 +286,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             name: u.name || u.email.split('@')[0],
             role: (u.role as UserRole) || 'STUDENT',
             departmentId: 'dept-cse',
-            avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+            avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.name || u.email)}`,
           };
           setCurrentUser(userObj);
         } else {
@@ -212,8 +310,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (savedAssets) setAssets(JSON.parse(savedAssets));
         if (savedReports) setReports(JSON.parse(savedReports));
 
-        // 3. Refresh live issues & notifications from backend API
-        await refreshIssues();
+        // 3. Refresh live issues, assets & notifications from backend API
+        await Promise.allSettled([
+          refreshIssues(),
+          refreshAssets(),
+        ]);
+
         try {
           const notifRes = await apiClient.getNotifications();
           if (notifRes.data?.notifications && notifRes.data.notifications.length > 0) {
@@ -238,7 +340,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     init();
-  }, [refreshIssues]);
+  }, [refreshIssues, refreshAssets]);
 
   // Persist state changes to LocalStorage
   useEffect(() => {
@@ -275,7 +377,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           email: res.data.email,
           role: (res.data.role as UserRole) || 'STUDENT',
           departmentId: 'dept-cse',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(res.data.name || email)}`,
         };
       } else if (res.status === 500 && res.error?.toLowerCase().includes('network')) {
         // ⚠️ Backend genuinely unreachable — fall back to mock for offline/dev mode
@@ -312,15 +414,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       email: userData.email,
       role: (userData.role as UserRole) || 'STUDENT',
       departmentId: 'dept-cse',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(userData.name || userData.email)}`,
     };
     setCurrentUser(user);
     return user;
-  };
-
-  const loginWithGoogle = async (email?: string): Promise<User> => {
-    const userEmail = email || 'alex.rivera@campus.edu';
-    return login(userEmail, 'Password123!');
   };
 
   const logout = async () => {
@@ -407,11 +504,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const backendRes = await apiClient.createIssue({
         title: input.title,
         description: input.description,
-        category: category?.name,
-        department: department?.name,
+        category: category?.name || input.categoryId,
+        department: department?.name || input.departmentId,
         location: input.locationDetails || input.locationId,
         suspectedCause: input.possibleCause,
         proposedSolution: input.suggestedSolution,
+        attachments: input.attachments || [],
       });
 
       if (backendRes.data) {
@@ -420,11 +518,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return serverIssue;
       } else if (backendRes.error) {
         console.error('Backend issue creation error:', backendRes.error);
-        alert(`Issue created locally, but could not sync with database: ${backendRes.error}`);
       }
     } catch (e: any) {
       console.warn('Backend issue creation sync error:', e);
-      alert(`Could not sync issue with server: ${e?.message || 'Network error'}`);
     }
 
     return localIssue;
@@ -490,15 +586,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {}
   };
 
-  const updateStatus = (
+  const updateStatus = async (
     issueId: string,
     newStatus: IssueStatus,
     reason?: string,
     proof?: { imageUrl: string; notes: string }
-  ): boolean => {
+  ): Promise<boolean> => {
     const targetIssue = issues.find((i) => i.id === issueId);
     if (!targetIssue || !currentUser) return false;
 
+    const previousStatus = targetIssue.status;
     const nowISO = new Date().toISOString();
     let resolutionProofObj: ResolutionProof | undefined = undefined;
 
@@ -545,10 +642,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
 
     try {
-      apiClient.transitionStatus(issueId, newStatus, reason);
-    } catch (e) {}
-
-    return true;
+      const res = await apiClient.transitionStatus(issueId, newStatus, reason);
+      if (res.error) {
+        console.error('Failed to transition status on server:', res.error);
+        setIssues((prev) =>
+          prev.map((iss) => (iss.id === issueId ? { ...iss, status: previousStatus } : iss))
+        );
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error('Server error transitioning status:', e);
+      setIssues((prev) =>
+        prev.map((iss) => (iss.id === issueId ? { ...iss, status: previousStatus } : iss))
+      );
+      return false;
+    }
   };
 
   const submitResolution = async (
@@ -557,62 +666,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     imageUrl: string,
     uploadId?: string
   ): Promise<boolean> => {
-    updateStatus(issueId, 'RESOLUTION_SUBMITTED', notes, {
-      imageUrl,
-      notes,
-    });
-
     try {
       if (uploadId) {
-        await apiClient.submitResolution(issueId, notes, [uploadId]);
+        const res = await apiClient.submitResolution(issueId, notes, [uploadId]);
+        if (res.data) {
+          await updateStatus(issueId, 'RESOLUTION_SUBMITTED', notes, { imageUrl, notes });
+          return true;
+        }
       }
-    } catch (e) {}
-
-    return true;
+      return await updateStatus(issueId, 'RESOLUTION_SUBMITTED', notes, { imageUrl, notes });
+    } catch (e) {
+      console.error('Submit resolution error:', e);
+      return false;
+    }
   };
 
-  const verifyResolution = (issueId: string): boolean => {
-    const targetIssue = issues.find((i) => i.id === issueId);
-    if (!targetIssue || !currentUser) return false;
-
-    const nowISO = new Date().toISOString();
-
-    setIssues((prev) =>
-      prev.map((iss) =>
-        iss.id === issueId
-          ? { ...iss, status: 'VERIFIED', verifiedAt: nowISO, updatedAt: nowISO }
-          : iss
-      )
-    );
-
-    const historyItem: IssueStatusHistory = {
-      id: `hist-${Date.now()}`,
+  const verifyResolution = async (issueId: string): Promise<boolean> => {
+    return updateStatus(
       issueId,
-      fromStatus: targetIssue.status,
-      toStatus: 'VERIFIED',
-      changedById: currentUser.id,
-      changedByName: currentUser.name,
-      changedByRole: currentUser.role,
-      reason: `Resolution accepted and verified by ${currentUser.name}.`,
-      createdAt: nowISO,
-    };
-
-    setStatusHistory((prev) => ({
-      ...prev,
-      [issueId]: [historyItem, ...(prev[issueId] || [])],
-    }));
-
-    try {
-      apiClient.transitionStatus(issueId, 'VERIFIED', `Resolution accepted and verified by ${currentUser.name}.`);
-    } catch (e) {}
-
-    return true;
+      'VERIFIED',
+      `Resolution accepted and verified by ${currentUser?.name || 'reporter'}.`
+    );
   };
 
   const disputeResolution = async (issueId: string, reason: string, evidenceUrls?: string[]): Promise<boolean> => {
     const targetIssue = issues.find((i) => i.id === issueId);
     if (!targetIssue || !currentUser) return false;
 
+    const previousStatus = targetIssue.status;
     const nowISO = new Date().toISOString();
     const reopenEntry = {
       reason,
@@ -654,14 +735,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
 
     try {
-      await apiClient.disputeResolution(issueId, reason, evidenceUrls);
-    } catch (e) {}
-
-    return true;
+      const res = await apiClient.disputeResolution(issueId, reason, evidenceUrls);
+      if (res.error) {
+        console.error('Failed to dispute resolution on server:', res.error);
+        setIssues((prev) =>
+          prev.map((iss) => (iss.id === issueId ? { ...iss, status: previousStatus } : iss))
+        );
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error('Server error disputing resolution:', e);
+      setIssues((prev) =>
+        prev.map((iss) => (iss.id === issueId ? { ...iss, status: previousStatus } : iss))
+      );
+      return false;
+    }
   };
 
-  const reopenIssue = async (issueId: string, reason: string, evidenceUrls?: string[]) => {
-    return disputeResolution(issueId, reason, evidenceUrls);
+  const reopenIssue = async (issueId: string, reason: string, evidenceUrls?: string[]): Promise<boolean> => {
+    const targetIssue = issues.find((i) => i.id === issueId);
+    if (!targetIssue || !currentUser) return false;
+
+    if (targetIssue.status === 'RESOLUTION_SUBMITTED' || targetIssue.status === 'VERIFIED') {
+      return disputeResolution(issueId, reason, evidenceUrls);
+    }
+
+    return updateStatus(issueId, 'REOPENED', reason);
   };
 
   const assignIssue = (issueId: string, assigneeId: string, assigneeName: string) => {
@@ -677,9 +777,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `cmt-${Date.now()}`,
       issueId,
       authorId: currentUser.id,
+      userId: currentUser.id,
       authorName: currentUser.name,
+      userName: currentUser.name,
       authorRole: currentUser.role,
+      userRole: currentUser.role,
       body,
+      content: body,
       attachments: attachments || [],
       createdAt: new Date().toISOString(),
     };
@@ -691,7 +795,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     try {
       await apiClient.addComment(issueId, body);
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Failed to post comment to server:', e);
+    }
   };
 
   const reportIssueContent = async (issueId: string, reason: IssueReport['reason'], details?: string) => {
@@ -726,32 +832,80 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {}
   };
 
-  const markNotificationRead = (id: string) => {
+  const markNotificationRead = async (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
     try {
-      apiClient.markNotificationRead(id);
-    } catch (e) {}
+      await apiClient.markNotificationRead(id);
+    } catch (e) {
+      console.warn('Mark notification read failed:', e);
+    }
   };
 
-  const markAllNotificationsRead = () => {
+  const markAllNotificationsRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     try {
-      apiClient.markAllNotificationsRead();
-    } catch (e) {}
+      await apiClient.markAllNotificationsRead();
+    } catch (e) {
+      console.warn('Mark all notifications read failed:', e);
+    }
   };
 
-  const addAsset = (asset: Asset) => {
-    setAssets((prev) => [asset, ...prev]);
+  const addAsset = async (asset: Asset) => {
+    setAssets((prev) => [asset, ...prev.filter((a) => a.id !== asset.id && a.assetTag !== asset.assetTag)]);
+    try {
+      const res = await apiClient.createAsset({
+        name: asset.name,
+        assetTag: asset.assetTag,
+        category: asset.category,
+        departmentId: asset.departmentId,
+        locationId: asset.locationId,
+        status: asset.status,
+        modelNumber: asset.modelNumber,
+        serialNumber: asset.serialNumber,
+        imageUrl: asset.imageUrl,
+      });
+      if (res.data) {
+        setAssets((prev) => [res.data, ...prev.filter((a) => a.id !== asset.id && a.id !== res.data.id)]);
+      }
+    } catch (e) {
+      console.warn('Backend createAsset error:', e);
+    }
   };
 
-  const deleteAsset = (assetId: string) => {
+  const deleteAsset = async (assetId: string) => {
     setAssets((prev) => prev.filter((a) => a.id !== assetId));
+    try {
+      await apiClient.deleteAsset(assetId);
+    } catch (e) {
+      console.warn('Backend deleteAsset error:', e);
+    }
   };
 
   const getAssetById = (id?: string) => assets.find((a) => a.id === id);
-  const getDepartmentById = (id?: string) => MOCK_DEPARTMENTS.find((d) => d.id === id);
-  const getLocationById = (id?: string) => MOCK_LOCATIONS.find((l) => l.id === id);
-  const getCategoryById = (id?: string) => MOCK_CATEGORIES.find((c) => c.id === id);
+  const getDepartmentById = (id?: string) => {
+    if (!id) return undefined;
+    const lower = id.toLowerCase().trim();
+    return (
+      MOCK_DEPARTMENTS.find(
+        (d) => d.id.toLowerCase() === lower || d.name.toLowerCase() === lower || d.code.toLowerCase() === lower
+      ) || { id, name: id, code: 'CET' }
+    );
+  };
+  const getLocationById = (id?: string) => {
+    if (!id) return undefined;
+    const lower = id.toLowerCase().trim();
+    return MOCK_LOCATIONS.find(
+      (l) => l.id.toLowerCase() === lower || l.room.toLowerCase() === lower || l.building.toLowerCase() === lower
+    );
+  };
+  const getCategoryById = (id?: string) => {
+    if (!id) return undefined;
+    const lower = id.toLowerCase().trim();
+    return (
+      MOCK_CATEGORIES.find((c) => c.id.toLowerCase() === lower || c.name.toLowerCase() === lower) ||
+      { id, name: id, description: '', iconName: 'Tag', active: true }
+    );
+  };
 
   return (
     <AppContext.Provider
@@ -760,10 +914,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         users: MOCK_USERS,
         isLoadingAuth,
         login,
-        loginWithGoogle,
         setUserFromAuthResponse,
         logout,
         refreshIssues,
+        refreshAssets,
+        fetchIssueDetail,
         issues,
         departments: MOCK_DEPARTMENTS,
         locations: MOCK_LOCATIONS,

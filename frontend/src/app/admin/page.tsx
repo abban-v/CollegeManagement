@@ -77,9 +77,10 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const openIssues = issues.filter((i) => i.status !== 'VERIFIED' && i.status !== 'CLOSED');
-  const criticalIssues = issues.filter((i) => i.priority === 'CRITICAL' && i.status !== 'VERIFIED' && i.status !== 'CLOSED');
-  const verifiedIssues = issues.filter((i) => i.status === 'VERIFIED');
+  const activeIssues = issues.filter((i) => i.moderationStatus !== 'REMOVED');
+  const openIssues = activeIssues.filter((i) => i.status !== 'VERIFIED' && i.status !== 'CLOSED');
+  const criticalIssues = activeIssues.filter((i) => (i.priority === 'CRITICAL' || i.priority === 'HIGH') && i.status !== 'VERIFIED' && i.status !== 'CLOSED');
+  const verifiedIssues = activeIssues.filter((i) => i.status === 'VERIFIED');
   const flaggedIssues = issues.filter((i) => i.moderationStatus === 'FLAGGED' || i.moderationStatus === 'UNDER_REVIEW');
 
   return (
@@ -243,7 +244,7 @@ export default function AdminDashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-indigo-950/50">
-                      {issues.map((issue) => (
+                      {activeIssues.map((issue) => (
                         <tr key={issue.id} className="hover:bg-slate-900/40 transition-colors">
                           <td className="py-3.5 pr-4">
                             <Link href={`/issues/${issue.id}`} className="font-semibold text-white hover:text-purple-300 block truncate max-w-xs">

@@ -10,6 +10,12 @@ CREATE TYPE "IssuePriority" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
 -- CreateEnum
 CREATE TYPE "ModerationStatus" AS ENUM ('NORMAL', 'FLAGGED', 'UNDER_REVIEW', 'APPROVED', 'DUPLICATE', 'REMOVED');
 
+-- CreateEnum
+CREATE TYPE "AnalysisStatus" AS ENUM ('PENDING', 'COMPLETED', 'FAILED');
+
+-- CreateEnum
+CREATE TYPE "AssetStatus" AS ENUM ('OPERATIONAL', 'DEGRADED', 'OUT_OF_SERVICE', 'UNDER_MAINTENANCE');
+
 -- CreateTable
 CREATE TABLE "users" (
     "id" TEXT NOT NULL,
@@ -46,15 +52,38 @@ CREATE TABLE "issues" (
     "location" TEXT,
     "suspectedCause" TEXT,
     "proposedSolution" TEXT,
+    "attachments" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "status" "IssueStatus" NOT NULL DEFAULT 'REPORTED',
     "priority" "IssuePriority" NOT NULL DEFAULT 'MEDIUM',
     "moderationStatus" "ModerationStatus" NOT NULL DEFAULT 'NORMAL',
     "reporterId" TEXT NOT NULL,
     "affectedUserCount" INTEGER NOT NULL DEFAULT 1,
+    "assetId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "issues_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "assets" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "assetTag" TEXT NOT NULL,
+    "category" TEXT NOT NULL,
+    "departmentId" TEXT NOT NULL,
+    "locationId" TEXT NOT NULL,
+    "status" "AssetStatus" NOT NULL DEFAULT 'OPERATIONAL',
+    "modelNumber" TEXT,
+    "serialNumber" TEXT,
+    "installedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastServicedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "reportedIssuesCount" INTEGER NOT NULL DEFAULT 0,
+    "imageUrl" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "assets_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -111,6 +140,21 @@ CREATE TABLE "resolution_evidence" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "resolution_evidence_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "upload_references" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "storageKey" TEXT NOT NULL,
+    "mimeType" TEXT NOT NULL,
+    "fileSize" INTEGER NOT NULL,
+    "originalFilename" TEXT NOT NULL,
+    "consumed" BOOLEAN NOT NULL DEFAULT false,
+    "consumedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "upload_references_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -190,6 +234,9 @@ CREATE TABLE "ai_analysis" (
     "moderationFlags" TEXT[],
     "confidence" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "duplicateCandidates" TEXT[],
+    "analysisStatus" "AnalysisStatus" NOT NULL DEFAULT 'PENDING',
+    "modelUsed" TEXT,
+    "reasoning" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -216,7 +263,12 @@ CREATE INDEX "issues_status_idx" ON "issues"("status");
 CREATE INDEX "issues_priority_idx" ON "issues"("priority");
 CREATE INDEX "issues_moderationStatus_idx" ON "issues"("moderationStatus");
 CREATE INDEX "issues_reporterId_idx" ON "issues"("reporterId");
+CREATE INDEX "issues_assetId_idx" ON "issues"("assetId");
 CREATE INDEX "issues_createdAt_idx" ON "issues"("createdAt");
+CREATE UNIQUE INDEX "assets_assetTag_key" ON "assets"("assetTag");
+CREATE INDEX "assets_assetTag_idx" ON "assets"("assetTag");
+CREATE INDEX "assets_departmentId_idx" ON "assets"("departmentId");
+CREATE INDEX "assets_status_idx" ON "assets"("status");
 CREATE UNIQUE INDEX "issue_participants_issueId_userId_key" ON "issue_participants"("issueId", "userId");
 CREATE UNIQUE INDEX "issue_followers_issueId_userId_key" ON "issue_followers"("issueId", "userId");
 CREATE INDEX "comments_issueId_idx" ON "comments"("issueId");
@@ -224,6 +276,9 @@ CREATE INDEX "comments_authorId_idx" ON "comments"("authorId");
 CREATE INDEX "issue_resolutions_issueId_idx" ON "issue_resolutions"("issueId");
 CREATE INDEX "issue_resolutions_resolvedById_idx" ON "issue_resolutions"("resolvedById");
 CREATE INDEX "resolution_evidence_resolutionId_idx" ON "resolution_evidence"("resolutionId");
+CREATE UNIQUE INDEX "upload_references_storageKey_key" ON "upload_references"("storageKey");
+CREATE INDEX "upload_references_userId_idx" ON "upload_references"("userId");
+CREATE INDEX "upload_references_consumed_idx" ON "upload_references"("consumed");
 CREATE INDEX "issue_status_history_issueId_idx" ON "issue_status_history"("issueId");
 CREATE INDEX "issue_status_history_createdAt_idx" ON "issue_status_history"("createdAt");
 CREATE INDEX "audit_logs_issueId_idx" ON "audit_logs"("issueId");
@@ -244,6 +299,7 @@ CREATE INDEX "issue_embeddings_issueId_idx" ON "issue_embeddings"("issueId");
 -- AddForeignKey
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "issues" ADD CONSTRAINT "issues_reporterId_fkey" FOREIGN KEY ("reporterId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "issues" ADD CONSTRAINT "issues_assetId_fkey" FOREIGN KEY ("assetId") REFERENCES "assets"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "issue_participants" ADD CONSTRAINT "issue_participants_issueId_fkey" FOREIGN KEY ("issueId") REFERENCES "issues"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "issue_participants" ADD CONSTRAINT "issue_participants_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "issue_followers" ADD CONSTRAINT "issue_followers_issueId_fkey" FOREIGN KEY ("issueId") REFERENCES "issues"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -253,6 +309,7 @@ ALTER TABLE "comments" ADD CONSTRAINT "comments_authorId_fkey" FOREIGN KEY ("aut
 ALTER TABLE "issue_resolutions" ADD CONSTRAINT "issue_resolutions_issueId_fkey" FOREIGN KEY ("issueId") REFERENCES "issues"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "issue_resolutions" ADD CONSTRAINT "issue_resolutions_resolvedById_fkey" FOREIGN KEY ("resolvedById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "resolution_evidence" ADD CONSTRAINT "resolution_evidence_resolutionId_fkey" FOREIGN KEY ("resolutionId") REFERENCES "issue_resolutions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "upload_references" ADD CONSTRAINT "upload_references_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "issue_status_history" ADD CONSTRAINT "issue_status_history_issueId_fkey" FOREIGN KEY ("issueId") REFERENCES "issues"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_issueId_fkey" FOREIGN KEY ("issueId") REFERENCES "issues"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "issue_reports" ADD CONSTRAINT "issue_reports_issueId_fkey" FOREIGN KEY ("issueId") REFERENCES "issues"("id") ON DELETE CASCADE ON UPDATE CASCADE;

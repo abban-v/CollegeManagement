@@ -21,3 +21,5 @@ export const POST = withAuth(async (
     return sendJSON(errorResponse(getErrorMessage(error, "Failed to mark notification read"), 500));
   }
 });
+
+export const PATCH = POST;

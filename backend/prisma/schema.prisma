@@ -74,6 +74,7 @@ model Issue {
   location          String?
   suspectedCause    String?
   proposedSolution  String?
+  attachments       String[]           @default([])
 
   // Status & Priority
   status            IssueStatus        @default(REPORTED)
@@ -84,6 +85,8 @@ model Issue {
   reporterId        String
   reporter          User               @relation(fields: [reporterId], references: [id], onDelete: Cascade)
   affectedUserCount Int                @default(1)
+  assetId           String?
+  asset             Asset?             @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -104,6 +107,7 @@ model Issue {
   @@index([priority])
   @@index([moderationStatus])
   @@index([reporterId])
+  @@index([assetId])
   @@index([createdAt])
   @@map("issues")
 }
@@ -294,7 +298,7 @@ model IssueReport {
   reporterId String
   reporter  User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
 
-  reason    String   // SPAM, DUPLICATE, INAPPROPRIATE, MISLEADING, OTHER
+  reason    String   // spam, duplicate, inappropriate, misleading, sensitive_info, other
   details   String?
 
   createdAt DateTime @default(now())
@@ -399,4 +403,41 @@ model IssueEmbedding {
 
   @@index([issueId])
   @@map("issue_embeddings")
+}
+
+// ============================================
+// ASSETS & EQUIPMENT
+// ============================================
+
+model Asset {
+  id                  String       @id @default(cuid())
+  name                String
+  assetTag            String       @unique
+  category            String       // e.g. "cat-projector", "cat-hvac", "cat-lab"
+  departmentId        String       // e.g. "dept-cse", "dept-mech"
+  locationId          String       // e.g. "CS 201", "loc-cs-201"
+  status              AssetStatus  @default(OPERATIONAL)
+  modelNumber         String?
+  serialNumber        String?
+  installedAt         DateTime     @default(now())
+  lastServicedAt      DateTime     @default(now())
+  reportedIssuesCount Int          @default(0)
+  imageUrl            String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  // Relations
+  issues              Issue[]
+
+  @@index([assetTag])
+  @@index([departmentId])
+  @@index([status])
+  @@map("assets")
+}
+
+enum AssetStatus {
+  OPERATIONAL
+  DEGRADED
+  OUT_OF_SERVICE
+  UNDER_MAINTENANCE
 }

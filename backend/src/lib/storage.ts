@@ -43,7 +43,6 @@ const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"
 const MAGIC_BYTES: Record<string, number[][]> = {
   "image/jpeg": [[0xff, 0xd8, 0xff]],
   "image/png": [[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]],
-  "image/webp": [[0x52, 0x49, 0x46, 0x00]], // RIFF header (also used by WAV, but we check WEBP extension)
   "image/gif": [
     [0x47, 0x49, 0x46, 0x38, 0x37, 0x61], // GIF87a
     [0x47, 0x49, 0x46, 0x38, 0x39, 0x61], // GIF89a
@@ -70,6 +69,22 @@ export function validateFileContent(
 ): { valid: boolean; error?: string } {
   if (!ALLOWED_MIME_TYPES.includes(mimeType as (typeof ALLOWED_MIME_TYPES)[number])) {
     return { valid: false, error: `MIME type ${mimeType} is not allowed` };
+  }
+
+  // WebP has 'RIFF' at bytes 0-3 and 'WEBP' at bytes 8-11
+  if (mimeType === "image/webp") {
+    if (data.length < 12) {
+      return { valid: false, error: "File too small to be valid WebP" };
+    }
+    const isRiff = data[0] === 0x52 && data[1] === 0x49 && data[2] === 0x46 && data[3] === 0x46;
+    const isWebp = data[8] === 0x57 && data[9] === 0x45 && data[10] === 0x42 && data[11] === 0x50;
+    if (!isRiff || !isWebp) {
+      return {
+        valid: false,
+        error: `File content does not match declared MIME type ${mimeType}`,
+      };
+    }
+    return { valid: true };
   }
 
   const signatures = MAGIC_BYTES[mimeType];

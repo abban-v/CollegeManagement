@@ -25,7 +25,8 @@ export const IssueFilterBar: React.FC<IssueFilterBarProps> = ({ filters, onFilte
     { label: 'All Issues', value: 'ALL' },
     { label: 'Reported', value: 'REPORTED' },
     { label: 'In Progress', value: 'IN_PROGRESS' },
-    { label: 'Resolved', value: 'RESOLVED' },
+    { label: 'Proof Submitted', value: 'RESOLUTION_SUBMITTED' },
+    { label: 'Verified Fix', value: 'VERIFIED' },
     { label: 'Reopened', value: 'REOPENED' },
   ];
 

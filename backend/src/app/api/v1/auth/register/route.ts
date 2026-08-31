@@ -45,14 +45,28 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, password, name, role } = RegisterSchema.parse(body);
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
     });
 
     if (existingUser) {
       return sendJSON(errorResponse("User with this email already exists", 409));
     }
+
+    // Determine role based on ADMIN_EMAILS allowlist (prevent privilege escalation)
+    const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "")
+      .toLowerCase()
+      .replace(/[{}"']/g, "")
+      .split(",")
+      .map((e) => e.trim())
+      .filter(Boolean);
+
+    const assignedRole = ADMIN_EMAILS.includes(normalizedEmail)
+      ? UserRole.ADMIN
+      : UserRole.STUDENT;
 
     // Hash password with bcrypt
     // bcrypt: one-way hashing algorithm
@@ -62,10 +76,10 @@ export async function POST(request: NextRequest) {
     // Create user
     const user = await prisma.user.create({
       data: {
-        email,
-        name: name || email.split("@")[0],
+        email: normalizedEmail,
+        name: name || normalizedEmail.split("@")[0],
         password: hashedPassword, // Store hashed password
-        role: role || UserRole.STUDENT, // Default role
+        role: assignedRole,
       },
     });
 

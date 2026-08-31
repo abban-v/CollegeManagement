@@ -10,31 +10,64 @@ const ALLOWED_DOMAIN = process.env.ALLOWED_EMAIL_DOMAIN || "cet.ac.in";
 
 const GoogleAuthSchema = z.object({
   credential: z.string().optional(),
+  accessToken: z.string().optional(),
   email: z.string().email().optional(),
   name: z.string().optional(),
   avatarUrl: z.string().optional(),
 });
 
 /**
- * Decode base64url encoded string from JWT
+ * Verify Google ID token or Access token with Google's verification endpoints
  */
-function decodeJwtPayload(token: string): any {
-  try {
-    const parts = token.split(".");
-    if (parts.length < 2) return null;
-    const payloadBase64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const jsonStr = Buffer.from(payloadBase64, "base64").toString("utf-8");
-    return JSON.parse(jsonStr);
-  } catch (e) {
-    return null;
+async function verifyGoogleToken(params: { credential?: string; accessToken?: string }): Promise<{ email: string; name?: string; emailVerified: boolean } | null> {
+  // 1. If ID Token (JWT) is provided, verify with Google tokeninfo endpoint
+  if (params.credential) {
+    try {
+      const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(params.credential)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.email && (data.email_verified === "true" || data.email_verified === true)) {
+          return {
+            email: data.email,
+            name: data.name || data.given_name,
+            emailVerified: true,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("Google ID token verification error:", err);
+    }
   }
+
+  // 2. If Access Token is provided, verify with Google userinfo endpoint
+  if (params.accessToken) {
+    try {
+      const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: { Authorization: `Bearer ${params.accessToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.email && (data.email_verified === true || data.email_verified === "true")) {
+          return {
+            email: data.email,
+            name: data.name || data.given_name,
+            emailVerified: true,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("Google access token verification error:", err);
+    }
+  }
+
+  return null;
 }
 
 /**
  * POST /api/v1/auth/google
  *
  * Authenticates a user with Google OAuth (Google Identity Services).
- * STRICT ENFORCEMENT: Only allows accounts belonging to @cet.ac.in domain.
+ * STRICT ENFORCEMENT: Cryptographically verifies Google token and enforces @cet.ac.in domain.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -44,13 +77,21 @@ export async function POST(request: NextRequest) {
     let email = parsed.email;
     let name = parsed.name;
 
-    // If Google JWT credential was provided, extract payload
-    if (parsed.credential) {
-      const decoded = decodeJwtPayload(parsed.credential);
-      if (decoded && decoded.email) {
-        email = decoded.email;
-        name = decoded.name || decoded.given_name || name;
+    // Verify Google token cryptographically
+    if (parsed.credential || parsed.accessToken) {
+      const verified = await verifyGoogleToken({
+        credential: parsed.credential,
+        accessToken: parsed.accessToken,
+      });
+
+      if (!verified) {
+        return sendJSON(errorResponse("Invalid or unverified Google credentials", 401));
       }
+
+      email = verified.email;
+      name = verified.name || name;
+    } else {
+      return sendJSON(errorResponse("Google authentication token (ID token or access token) is strictly required", 400));
     }
 
     if (!email) {
@@ -71,6 +112,7 @@ export async function POST(request: NextRequest) {
 
     const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "")
       .toLowerCase()
+      .replace(/[{}"']/g, "")
       .split(",")
       .map((e) => e.trim())
       .filter(Boolean);

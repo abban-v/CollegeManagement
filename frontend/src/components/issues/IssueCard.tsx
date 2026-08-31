@@ -101,11 +101,15 @@ export const IssueCard: React.FC<IssueCardProps> = ({ issue }) => {
         <div className="space-y-1.5 mb-4 text-xs text-slate-400 bg-[#070a1a]/60 p-2.5 rounded-xl border border-indigo-950/60">
           <div className="flex items-center gap-2 text-slate-300">
             <MapPin className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-            <span className="truncate font-medium">{loc?.building || 'Campus'} &bull; {loc?.room || issue.locationDetails}</span>
+            <span className="truncate font-medium">
+              {loc ? `${loc.building} • ${loc.room}` : (issue.locationDetails || issue.locationId || 'Main Campus')}
+            </span>
           </div>
           <div className="flex items-center gap-2 text-[11px] text-slate-400">
             <Building2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-            <span className="truncate">{dept?.name} ({dept?.code})</span>
+            <span className="truncate">
+              {dept ? (dept.code && dept.code !== dept.name ? `${dept.name} (${dept.code})` : dept.name) : (issue.departmentId || 'Campus Facilities')}
+            </span>
           </div>
         </div>
 
