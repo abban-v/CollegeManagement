@@ -326,7 +326,7 @@ export default function IssueDetailPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
-              {issue.status !== 'IN_PROGRESS' && issue.status !== 'RESOLUTION_SUBMITTED' && issue.status !== 'VERIFIED' && issue.status !== 'CLOSED' && (
+              {(issue.status === 'REPORTED' || issue.status === 'UNDER_REVIEW' || issue.status === 'REOPENED') && (
                 <button
                   onClick={async () => {
                     const ok = await updateStatus(issue.id, 'IN_PROGRESS', 'Official initiated work');
