@@ -10,19 +10,16 @@ import {
   Search,
   Building2,
   MapPin,
-  Calendar,
   AlertOctagon,
   CheckCircle2,
   AlertTriangle,
   Clock,
-  Sparkles,
   Plus,
   X,
   Cpu,
   Tv,
   AirVent,
   Zap,
-  Droplets,
   Trash2,
   Loader2
 } from 'lucide-react';
@@ -30,7 +27,7 @@ import confetti from 'canvas-confetti';
 
 export default function AssetsPage() {
   const router = useRouter();
-  const { assets, departments, issues, getDepartmentById, currentUser, isLoadingAuth, addAsset, deleteAsset } = useApp();
+  const { assets, departments, getDepartmentById, currentUser, isLoadingAuth, addAsset, deleteAsset } = useApp();
   const [search, setSearch] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
@@ -236,8 +233,6 @@ export default function AssetsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredAssets.map((asset) => {
               const dept = getDepartmentById(asset.departmentId);
-              const relatedIssues = issues.filter((i) => i.assetId === asset.id);
-
               return (
                 <div
                   key={asset.id}

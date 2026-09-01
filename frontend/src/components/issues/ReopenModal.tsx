@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/lib/store';
-import { X, RefreshCcw, AlertTriangle, Upload, Check } from 'lucide-react';
+import { X, RefreshCcw, AlertTriangle, Upload } from 'lucide-react';
 
 interface ReopenModalProps {
   issueId: string;

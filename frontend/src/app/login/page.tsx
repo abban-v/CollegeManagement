@@ -15,7 +15,20 @@ import confetti from 'canvas-confetti';
 
 declare global {
   interface Window {
-    google?: any;
+    google?: {
+      accounts: {
+        oauth2: {
+          initTokenClient: (config: {
+            client_id: string;
+            scope: string;
+            hosted_domain: string;
+            callback: (response: { error?: string; error_description?: string; access_token?: string; id_token?: string }) => void;
+          }) => {
+            requestAccessToken: (options: { prompt: string }) => void;
+          };
+        };
+      };
+    };
   }
 }
 
@@ -62,7 +75,7 @@ export default function LoginPage() {
           client_id: googleClientId,
           scope: 'email profile openid',
           hosted_domain: 'cet.ac.in',
-          callback: async (tokenResponse: any) => {
+          callback: async (tokenResponse: { error?: string; error_description?: string; access_token?: string; id_token?: string }) => {
             if (tokenResponse.error) {
               setErrorMessage(`Google Sign-In: ${tokenResponse.error_description || tokenResponse.error}`);
               setIsSubmitting(false);
@@ -94,8 +107,8 @@ export default function LoginPage() {
                     authRes.error || 'Access restricted. Only official @cet.ac.in college accounts are permitted.'
                   );
                 }
-              } catch (err: any) {
-                setErrorMessage(err.message || 'Authentication failed. Please check your network connection.');
+              } catch (err: unknown) {
+                setErrorMessage(err instanceof Error ? err.message : 'Authentication failed. Please check your network connection.');
               } finally {
                 setIsSubmitting(false);
               }
@@ -104,9 +117,9 @@ export default function LoginPage() {
         });
 
         tokenClient.requestAccessToken({ prompt: 'select_account' });
-      } catch (e: any) {
+      } catch (e: unknown) {
         setIsSubmitting(false);
-        setErrorMessage(e.message || 'Unable to open Google Sign-In window.');
+        setErrorMessage(e instanceof Error ? e.message : 'Unable to open Google Sign-In window.');
       }
     } else {
       setShowSetupModal(true);

@@ -11,7 +11,6 @@ import {
   AlertTriangle,
   HelpCircle,
   Lightbulb,
-  Building,
   MapPin,
   Tag,
   Check,
@@ -34,7 +33,6 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
     currentUser,
     departments,
     categories,
-    assets,
     issues,
     createIssue,
     toggleAffected,
@@ -45,7 +43,6 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
   const [departmentId, setDepartmentId] = useState(departments[0]?.id || 'dept-facilities');
   const [locationDetails, setLocationDetails] = useState('');
   const [categoryId, setCategoryId] = useState(categories[0]?.id || 'cat-general');
-  const [assetId, setAssetId] = useState('');
   const [priority, setPriority] = useState<IssuePriority>('MEDIUM');
   const [possibleCause, setPossibleCause] = useState('');
   const [suggestedSolution, setSuggestedSolution] = useState('');
@@ -53,11 +50,6 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
   const [selectedImage, setSelectedImage] = useState<string>('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'diagnostics' | 'evidence'>('details');
-
-  // Filter assets matching selected department
-  const matchingAssets = useMemo(() => {
-    return assets.filter((a) => !departmentId || a.departmentId === departmentId);
-  }, [assets, departmentId]);
 
   // Duplicate detection
   const potentialDuplicates = useMemo(() => {

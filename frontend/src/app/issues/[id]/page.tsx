@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useApp } from '@/lib/store';
 import { Navbar } from '@/components/layout/Navbar';
 import { StatusBadge, PriorityBadge, ModerationBadge } from '@/components/ui/Badge';
@@ -25,12 +26,9 @@ import {
   Sparkles,
   HelpCircle,
   Lightbulb,
-  Clock,
   History,
   Box,
   Image as ImageIcon,
-  UserCheck,
-  ChevronRight,
   ShieldAlert,
   Bot,
   Flag
@@ -49,7 +47,6 @@ export default function IssueDetailPage() {
     currentUser,
     isLoadingAuth,
     toggleAffected,
-    toggleFollow,
     updateStatus,
     verifyResolution,
     comments,
@@ -69,7 +66,7 @@ export default function IssueDetailPage() {
   const [isFlagModalOpen, setIsFlagModalOpen] = useState(false);
   const [flagReason, setFlagReason] = useState<FlagReason>('spam');
   const [flagDetails, setFlagDetails] = useState('');
-  const [isFetchingDetail, setIsFetchingDetail] = useState(false);
+
 
   React.useEffect(() => {
     if (!isLoadingAuth && !currentUser) {
@@ -79,8 +76,7 @@ export default function IssueDetailPage() {
 
   React.useEffect(() => {
     if (issueId) {
-      setIsFetchingDetail(true);
-      fetchIssueDetail(issueId).finally(() => setIsFetchingDetail(false));
+      fetchIssueDetail(issueId);
     }
   }, [issueId, fetchIssueDetail]);
 
@@ -97,14 +93,6 @@ export default function IssueDetailPage() {
   const historyList = statusHistory[issueId] || [];
 
   if (!issue) {
-    if (isFetchingDetail) {
-      return (
-        <div className="min-h-screen bg-[#060813] flex items-center justify-center text-purple-400">
-          <div className="animate-spin w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full" />
-        </div>
-      );
-    }
-
     return (
       <div className="min-h-screen bg-[#060813] text-slate-100 flex flex-col">
         <Navbar />
@@ -129,7 +117,6 @@ export default function IssueDetailPage() {
   const asset = getAssetById(issue.assetId);
 
   const isAffected = issue.affectedUserIds.includes(currentUser.id);
-  const isReporter = currentUser.id === issue.reporterId;
   const isOfficialOrAdmin = currentUser.role === 'ADMIN' || currentUser.role === 'OFFICIAL';
 
   const handleUpvote = () => {
@@ -382,10 +369,11 @@ export default function IssueDetailPage() {
                 <div className="shrink-0">
                   <p className="text-[11px] font-semibold text-emerald-300 mb-1.5">Official Completion Evidence:</p>
                   <div className="relative w-48 h-32 rounded-xl overflow-hidden border border-emerald-500/40 shadow-md">
-                    <img
+                    <Image
                       src={formatImageUrl(issue.resolutionProof.imageUrl)}
                       alt="Resolution Proof"
-                      className="w-full h-full object-cover"
+                      fill
+                      className="object-cover"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-2">
                       <span className="text-[10px] text-white font-medium flex items-center gap-1">
@@ -485,7 +473,7 @@ export default function IssueDetailPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {issue.attachments.map((imgUrl, idx) => (
                       <div key={idx} className="relative rounded-xl overflow-hidden border border-indigo-950/80 aspect-video">
-                        <img src={formatImageUrl(imgUrl)} alt="Evidence" className="w-full h-full object-cover" />
+                        <Image src={formatImageUrl(imgUrl)} alt="Evidence" fill className="object-cover" />
                       </div>
                     ))}
                   </div>
@@ -599,7 +587,7 @@ export default function IssueDetailPage() {
               </h3>
 
               <div className="space-y-4 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-indigo-950">
-                {historyList.map((item, idx) => (
+                {historyList.map((item) => (
                   <div key={item.id} className="relative pl-7 text-xs">
                     {/* Stepper Dot */}
                     <div className="absolute left-1.5 top-1 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-purple-600 border-2 border-[#0b0f22]" />
@@ -631,13 +619,13 @@ export default function IssueDetailPage() {
                 When multiple students mark themselves affected, this ticket receives higher urgency in the facilities queue.
               </p>
               <div className="flex items-center -space-x-2 overflow-hidden py-1">
-                {issue.affectedUserIds.map((userId, idx) => (
+                {issue.affectedUserIds.map((userId, index) => (
                   <div
-                    key={idx}
+                    key={userId}
                     className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-600 border-2 border-[#090e24] flex items-center justify-center text-xs font-bold text-white shadow-sm"
                     title={`User ID: ${userId}`}
                   >
-                    {idx === 0 ? 'A' : idx === 1 ? 'P' : 'U'}
+                    {index === 0 ? 'A' : index === 1 ? 'P' : 'U'}
                   </div>
                 ))}
               </div>
