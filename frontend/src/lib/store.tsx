@@ -24,13 +24,8 @@ import {
   MOCK_DEPARTMENTS,
   MOCK_LOCATIONS,
   MOCK_CATEGORIES,
-  MOCK_ASSETS,
-  MOCK_ISSUES,
-  MOCK_COMMENTS,
-  MOCK_STATUS_HISTORY,
-  MOCK_NOTIFICATIONS,
 } from './mock-data';
-import { apiClient, formatImageUrl } from './api';
+import { apiClient, formatImageUrl, Issue as ApiIssue, Asset as ApiAsset } from './api';
 
 interface CreateIssueInput {
   title: string;
@@ -95,14 +90,21 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null);
 
 const STORAGE_KEYS = {
-  CURRENT_USER: 'slashforge_current_user_v6',
-  ISSUES: 'slashforge_issues_v6',
-  COMMENTS: 'slashforge_comments_v6',
-  HISTORY: 'slashforge_history_v6',
-  NOTIFICATIONS: 'slashforge_notifications_v6',
-  ASSETS: 'slashforge_assets_v6',
-  REPORTS: 'slashforge_reports_v6',
+  CURRENT_USER: 'slashforge_current_user_v7',
 };
+
+// Legacy keys to purge on startup so corrupt phantom offline state is removed
+const LEGACY_STORAGE_KEYS = [
+  'slashforge_current_user_v6',
+  'slashforge_issues_v6',
+  'slashforge_comments_v6',
+  'slashforge_history_v6',
+  'slashforge_notifications_v6',
+  'slashforge_assets_v6',
+  'slashforge_reports_v6',
+  'slashforge_issues_v5',
+  'slashforge_issues_v4',
+];
 
 function findCategoryIdentifier(nameOrId?: string): string {
   if (!nameOrId) return 'cat-general';
@@ -121,9 +123,75 @@ function findDepartmentIdentifier(nameOrId?: string): string {
 }
 
 // Helper to adapt backend issue object to frontend Issue type
-function mapBackendIssueToFrontend(item: Record<string, unknown>): Issue {
-  const categoryId = findCategoryIdentifier(item.category as string);
-  const departmentId = findDepartmentIdentifier(item.department as string);
+function mapBackendIssueToFrontend(item: ApiIssue | Record<string, unknown>): Issue {
+  const categoryId = findCategoryIdentifier((item.category as string) || (item.categoryId as string));
+  const departmentId = findDepartmentIdentifier((item.department as string) || (item.departmentId as string));
+
+  const rawSeverity = (item.analysis as { severity?: string } | undefined)?.severity || (item.priority as string) || 'MEDIUM';
+  const severity: IssuePriority = (['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(rawSeverity.toUpperCase())
+    ? rawSeverity.toUpperCase()
+    : 'MEDIUM') as IssuePriority;
+
+  const rawPriority = (item.analysis as { aiPriority?: string } | undefined)?.aiPriority || (item.priority as string) || 'MEDIUM';
+  const priority: IssuePriority = (['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(rawPriority.toUpperCase())
+    ? rawPriority.toUpperCase()
+    : 'MEDIUM') as IssuePriority;
+
+  const resolutionArr = (item.resolutions as Array<Record<string, unknown>>) || [];
+  const firstResolution = resolutionArr[0];
+
+  let resolutionProof: ResolutionProof | undefined = undefined;
+  if (firstResolution) {
+    const evidenceArr = (firstResolution.evidenceImages as Array<Record<string, unknown>>) || [];
+    const firstImg = (evidenceArr[0]?.storageKey as string) || '';
+    const resolvedByObj = firstResolution.resolvedBy as Record<string, unknown> | undefined;
+
+    resolutionProof = {
+      imageUrl: formatImageUrl(firstImg),
+      resolvedById: (firstResolution.resolvedById as string) || 'system',
+      resolvedByName: (resolvedByObj?.name as string) || 'Facilities Official',
+      notes: (firstResolution.description as string) || 'Resolution completed',
+      resolvedAt: (firstResolution.createdAt as string) || new Date().toISOString(),
+    };
+  } else if (item.resolutionProof) {
+    const rawProof = item.resolutionProof as Record<string, unknown>;
+    resolutionProof = {
+      imageUrl: formatImageUrl((rawProof.imageUrl as string) || ''),
+      resolvedById: (rawProof.resolvedById as string) || undefined,
+      resolvedByName: (rawProof.resolvedByName as string) || 'Facilities Official',
+      notes: (rawProof.notes as string) || (rawProof.description as string) || 'Resolution completed',
+      resolvedAt: (rawProof.resolvedAt as string) || new Date().toISOString(),
+    };
+  }
+
+  const reporterObj = item.reporter as { id?: string; name?: string; email?: string; role?: string } | undefined;
+  const reporterRole = ((reporterObj?.role as string) || (item.reporterRole as string) || 'STUDENT').toUpperCase() as UserRole;
+
+  const participants = (item.participants as Array<{ userId: string }>) || [];
+  const followers = (item.followers as Array<{ userId: string }>) || [];
+  const affectedUserIds = participants.length > 0
+    ? participants.map((p) => p.userId)
+    : (item.affectedUserIds as string[]) || ((item.reporterId as string) ? [item.reporterId as string] : []);
+  const followerUserIds = followers.length > 0
+    ? followers.map((f) => f.userId)
+    : (item.followerUserIds as string[]) || ((item.reporterId as string) ? [item.reporterId as string] : []);
+
+  let aiAnalysis: AIAnalysis | undefined = undefined;
+  if (item.analysis) {
+    const analysisObj = item.analysis as Record<string, unknown>;
+    aiAnalysis = {
+      category: (analysisObj.category as string) || 'General',
+      suggestedDepartment: (analysisObj.suggestedDepartment as string) || 'Facilities',
+      severity,
+      priority,
+      confidence: typeof analysisObj.confidence === 'number' ? analysisObj.confidence : 0.94,
+      spamScore: typeof analysisObj.spamScore === 'number' ? analysisObj.spamScore : 0.01,
+      moderationFlags: Array.isArray(analysisObj.moderationFlags) ? (analysisObj.moderationFlags as string[]) : [],
+      duplicateCandidates: Array.isArray(analysisObj.duplicateCandidates) ? (analysisObj.duplicateCandidates as string[]) : [],
+      reasoning: (analysisObj.reasoning as string) || 'Automated AI analysis complete.',
+      modelUsed: (analysisObj.modelUsed as string) || 'Gemini 2.5 Flash',
+    };
+  }
 
   return {
     id: item.id as string,
@@ -131,92 +199,74 @@ function mapBackendIssueToFrontend(item: Record<string, unknown>): Issue {
     description: item.description as string,
     categoryId,
     departmentId,
-    locationId: (item.location as string) || 'loc-main',
-    locationDetails: (item.location as string) || '',
+    locationId: (item.location as string) || (item.locationId as string) || 'loc-main',
+    locationDetails: (item.location as string) || (item.locationDetails as string) || '',
     assetId: (item.assetId as string) || undefined,
-    reporterId: (item.reporterId as string) || 'unknown',
-    reporterName: (item.reporter as { name?: string })?.name || (item.reporterName as string) || 'Campus Member',
-    reporterEmail: (item.reporter as { email?: string })?.email || (item.reporterEmail as string) || '',
-    reporterRole: (item.reporter as { role?: string })?.role || (item.reporterRole as string) || 'STUDENT',
+    reporterId: (item.reporterId as string) || (reporterObj?.id) || 'unknown',
+    reporterName: reporterObj?.name || (item.reporterName as string) || 'Campus Member',
+    reporterEmail: reporterObj?.email || (item.reporterEmail as string) || '',
+    reporterRole,
     status: (item.status as IssueStatus) || 'REPORTED',
     moderationStatus: (item.moderationStatus as ModerationStatus) || 'NORMAL',
     priority: (item.priority as IssuePriority) || 'MEDIUM',
-    possibleCause: (item.suspectedCause as string) || (item.possibleCause as string),
-    suggestedSolution: (item.proposedSolution as string) || (item.suggestedSolution as string),
-    occurredAt: (item.occurredAt as string) || new Date(item.createdAt as string).toLocaleString(),
+    possibleCause: (item.suspectedCause as string) || (item.possibleCause as string) || undefined,
+    suggestedSolution: (item.proposedSolution as string) || (item.suggestedSolution as string) || undefined,
+    occurredAt: (item.occurredAt as string) || new Date((item.createdAt as string) || Date.now()).toLocaleString(),
     attachments: Array.isArray(item.attachments) ? item.attachments.map((a: string) => formatImageUrl(a)) : [],
-    affectedUserIds: (item.participants as Array<{ userId: string }>)?.map((p) => p.userId) || ((item.reporterId as string) ? [item.reporterId as string] : []),
-    followerUserIds: (item.followers as Array<{ userId: string }>)?.map((f) => f.userId) || ((item.reporterId as string) ? [item.reporterId as string] : []),
-    aiAnalysis: item.analysis ? {
-      category: (item.analysis as { category: string }).category,
-      suggestedDepartment: (item.analysis as { suggestedDepartment?: string }).suggestedDepartment || 'Facilities',
-      severity: (item.analysis as { severity: string }).severity,
-      priority: (item.analysis as { aiPriority: string }).aiPriority,
-      confidence: typeof (item.analysis as { confidence?: number }).confidence === 'number' ? (item.analysis as { confidence: number }).confidence : 0.94,
-      spamScore: typeof (item.analysis as { spamScore?: number }).spamScore === 'number' ? (item.analysis as { spamScore: number }).spamScore : 0.01,
-      moderationFlags: (item.analysis as { moderationFlags?: string[] }).moderationFlags || [],
-      duplicateCandidates: (item.analysis as { duplicateCandidates?: string[] }).duplicateCandidates || [],
-      reasoning: (item.analysis as { reasoning?: string }).reasoning || 'Automated AI categorization complete.',
-      modelUsed: (item.analysis as { modelUsed?: string }).modelUsed || 'Gemini 2.5 Flash',
-    } : undefined,
-    resolutionProof: (item.resolutions as Array<Record<string, unknown>>)?.[0] ? {
-      imageUrl: formatImageUrl(((item.resolutions as Array<Record<string, unknown>>)[0].evidenceImages as Array<Record<string, unknown>>)?.[0]?.storageKey as string || (item.resolutionProof as Record<string, unknown>)?.imageUrl as string),
-      resolvedById: (item.resolutions as Array<Record<string, unknown>>)[0].resolvedById as string,
-      resolvedByName: ((item.resolutions as Array<Record<string, unknown>>)[0].resolvedBy as Record<string, unknown>)?.name as string || 'Facilities Official',
-      notes: (item.resolutions as Array<Record<string, unknown>>)[0].description as string,
-      resolvedAt: (item.resolutions as Array<Record<string, unknown>>)[0].createdAt as string,
-    } : (item.resolutionProof ? { ...(item.resolutionProof as Record<string, unknown>), imageUrl: formatImageUrl((item.resolutionProof as Record<string, unknown>).imageUrl as string) } : undefined),
-    createdAt: item.createdAt as string,
-    updatedAt: item.updatedAt as string,
+    affectedUserIds,
+    followerUserIds,
+    aiAnalysis,
+    resolutionProof,
+    createdAt: (item.createdAt as string) || new Date().toISOString(),
+    updatedAt: (item.updatedAt as string) || new Date().toISOString(),
   };
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [issues, setIssues] = useState<Issue[]>(MOCK_ISSUES);
-  const [comments, setComments] = useState<Record<string, IssueComment[]>>(MOCK_COMMENTS);
-  const [statusHistory, setStatusHistory] = useState<Record<string, IssueStatusHistory[]>>(MOCK_STATUS_HISTORY);
-  const [notifications, setNotifications] = useState<AppNotification[]>(MOCK_NOTIFICATIONS);
-  const [assets, setAssets] = useState<Asset[]>(MOCK_ASSETS);
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [comments, setComments] = useState<Record<string, IssueComment[]>>({});
+  const [statusHistory, setStatusHistory] = useState<Record<string, IssueStatusHistory[]>>({});
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [reports, setReports] = useState<IssueReport[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Fetch real issues from backend
+  // Fetch real issues from PostgreSQL database via API
   const refreshIssues = useCallback(async () => {
     try {
       const res = await apiClient.listIssues({ take: 100 });
       if (res.data?.issues) {
         const mapped = res.data.issues.map(mapBackendIssueToFrontend);
-        setIssues((prev) => {
-          const optimistic = prev.filter(i => i.id.startsWith('iss-'));
-          return [...mapped, ...optimistic];
-        });
+        setIssues(mapped);
       }
     } catch (e) {
       console.warn('Could not fetch issues from backend:', e);
     }
   }, []);
 
-  // Fetch real assets from backend
+  // Fetch real assets from PostgreSQL database via API
   const refreshAssets = useCallback(async () => {
     try {
       const res = await apiClient.listAssets({ take: 100 });
       if (res.data?.assets) {
-        setAssets(res.data.assets.map((a) => ({
+        setAssets(res.data.assets.map((a: ApiAsset) => ({
           id: a.id,
           name: a.name,
           assetTag: a.assetTag,
           category: a.category,
           departmentId: a.departmentId,
           locationId: a.locationId,
-          status: a.status,
+          status: (a.status as Asset['status']) || 'OPERATIONAL',
           modelNumber: a.modelNumber || undefined,
           serialNumber: a.serialNumber || undefined,
-          installedAt: a.installedAt || new Date().toISOString(),
-          lastServicedAt: a.lastServicedAt || new Date().toISOString(),
+          installedAt: a.installedAt || new Date().toISOString().split('T')[0],
+          lastServicedAt: a.lastServicedAt || new Date().toISOString().split('T')[0],
           reportedIssuesCount: a.reportedIssuesCount || 0,
           imageUrl: a.imageUrl || undefined,
+          createdAt: a.createdAt,
+          updatedAt: a.updatedAt,
         })));
       }
     } catch (e) {
@@ -235,15 +285,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (res.data.comments && Array.isArray(res.data.comments)) {
           setComments((prev) => ({
             ...prev,
-            [issueId]: res.data.comments.map((c: { id: string; authorId: string; author?: { name?: string; role?: string }; content: string; createdAt: string }) => ({
+            [issueId]: res.data!.comments!.map((c) => ({
               id: c.id,
               issueId,
               userId: c.authorId,
               authorId: c.authorId,
               userName: c.author?.name || 'Campus Member',
               authorName: c.author?.name || 'Campus Member',
-              userRole: (c.author?.role as UserRole) || 'STUDENT',
-              authorRole: (c.author?.role as UserRole) || 'STUDENT',
+              userRole: ((c.author?.role as string) || 'STUDENT').toUpperCase() as UserRole,
+              authorRole: ((c.author?.role as string) || 'STUDENT').toUpperCase() as UserRole,
               content: c.content,
               body: c.content,
               createdAt: c.createdAt,
@@ -254,15 +304,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (res.data.statusHistory && Array.isArray(res.data.statusHistory)) {
           setStatusHistory((prev) => ({
             ...prev,
-            [issueId]: res.data.statusHistory.map((h: { id: string; fromStatus: string; toStatus: string; changedBy?: string; createdAt: string; reason?: string }) => ({
-              id: h.id,
+            [issueId]: res.data!.statusHistory!.map((h: Record<string, unknown>) => ({
+              id: h.id as string,
               issueId,
-              fromStatus: h.fromStatus,
-              toStatus: h.toStatus,
-              changedById: 'system',
-              changedByName: 'Audit Log',
-              changedAt: h.createdAt,
+              fromStatus: h.fromStatus as IssueStatus,
+              toStatus: h.toStatus as IssueStatus,
+              changedById: (h.changedById as string) || (h.changedBy as string) || 'system',
+              changedByName: (h.changedByName as string) || 'Audit Log',
+              changedByRole: (((h.changedByRole as string) || 'OFFICIAL').toUpperCase()) as UserRole,
               reason: (h.reason as string) || 'Status updated',
+              createdAt: (h.createdAt as string) || new Date().toISOString(),
             })),
           }));
         }
@@ -275,10 +326,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return undefined;
   }, []);
 
-  // Initialize auth session and data on load
+  // Initialize auth session and live database data
   useEffect(() => {
     async function init() {
       try {
+        // Purge corrupt legacy localStorage keys from prior versions
+        if (typeof window !== 'undefined') {
+          LEGACY_STORAGE_KEYS.forEach((k) => {
+            try { localStorage.removeItem(k); } catch {}
+          });
+        }
+
         // 1. Try checking real backend session
         const sessionRes = await apiClient.getSession();
         if (sessionRes.data?.user) {
@@ -292,51 +350,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.name || u.email)}`,
           };
           setCurrentUser(userObj);
+          try {
+            localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(userObj));
+          } catch {}
         } else {
           // Fallback to saved user in storage
           const savedUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-          if (savedUser) setCurrentUser(JSON.parse(savedUser));
+          if (savedUser) {
+            try { setCurrentUser(JSON.parse(savedUser)); } catch {}
+          }
         }
 
-        // 2. Load stored data or fetch from backend
-        const savedIssues = localStorage.getItem(STORAGE_KEYS.ISSUES);
-        const savedComments = localStorage.getItem(STORAGE_KEYS.COMMENTS);
-        const savedHistory = localStorage.getItem(STORAGE_KEYS.HISTORY);
-        const savedNotifications = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
-        const savedAssets = localStorage.getItem(STORAGE_KEYS.ASSETS);
-        const savedReports = localStorage.getItem(STORAGE_KEYS.REPORTS);
-
-        if (savedIssues) setIssues(JSON.parse(savedIssues));
-        if (savedComments) setComments(JSON.parse(savedComments));
-        if (savedHistory) setStatusHistory(JSON.parse(savedHistory));
-        if (savedNotifications) setNotifications(JSON.parse(savedNotifications));
-        if (savedAssets) setAssets(JSON.parse(savedAssets));
-        if (savedReports) setReports(JSON.parse(savedReports));
-
-        // 3. Refresh live issues, assets & notifications from backend API
+        // 2. Fetch live data from PostgreSQL backend
         await Promise.allSettled([
           refreshIssues(),
           refreshAssets(),
         ]);
 
+        // 3. Fetch notifications
         try {
           const notifRes = await apiClient.getNotifications();
-          if (notifRes.data?.notifications && notifRes.data.notifications.length > 0) {
-            setNotifications(notifRes.data.notifications.map((n: { id: string; userId: string; title: string; body?: string; message?: string; type?: string; read?: boolean; issueId?: string; createdAt: string }) => ({
-              id: n.id,
-              userId: n.userId,
-              title: n.title,
-              body: n.body || n.message || '',
-              type: (n.type as 'STATUS_CHANGED' | 'NEW_COMMENT' | 'RESOLUTION_SUBMITTED' | 'ISSUE_VERIFIED') || 'STATUS_CHANGED',
-              read: Boolean(n.read),
-              issueId: n.issueId,
-              createdAt: n.createdAt,
+          if (notifRes.data?.notifications && Array.isArray(notifRes.data.notifications)) {
+            setNotifications(notifRes.data.notifications.map((n: Record<string, unknown>) => ({
+              id: n.id as string,
+              userId: (n.userId as string) || '',
+              title: (n.title as string) || 'Notification',
+              body: (n.body as string) || (n.message as string) || '',
+              type: (n.type as AppNotification['type']) || 'STATUS_CHANGED',
+              read: Boolean(n.read || n.readAt),
+              issueId: (n.issueId as string) || undefined,
+              createdAt: (n.createdAt as string) || new Date().toISOString(),
             })));
           }
-        } catch (e: unknown) {
+        } catch (e) {
           console.warn('Failed to fetch notifications:', e);
         }
-      } catch (e: unknown) {
+      } catch (e) {
         console.warn('Initial session loading fallback:', e);
       } finally {
         setIsInitialized(true);
@@ -347,97 +396,54 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     init();
   }, [refreshIssues, refreshAssets]);
 
-  // Live polling: automatically refresh issues & notifications every 6 seconds so community updates appear in real time
+  // Live polling: automatically refresh issues & notifications every 10 seconds for real-time community updates
   useEffect(() => {
     if (!isInitialized || !currentUser) return;
     const interval = setInterval(() => {
       refreshIssues();
       apiClient.getNotifications().then((notifRes) => {
-        if (notifRes.data?.notifications && notifRes.data.notifications.length > 0) {
-          setNotifications(notifRes.data.notifications.map((n: any) => ({
-            id: n.id,
-            userId: n.userId,
-            title: n.title,
-            body: n.body || n.message || '',
-            type: (n.type as any) || 'STATUS_CHANGED',
-            read: Boolean(n.read),
-            issueId: n.issueId,
-            createdAt: n.createdAt,
+        if (notifRes.data?.notifications && Array.isArray(notifRes.data.notifications)) {
+          setNotifications(notifRes.data.notifications.map((n: Record<string, unknown>) => ({
+            id: n.id as string,
+            userId: (n.userId as string) || '',
+            title: (n.title as string) || 'Notification',
+            body: (n.body as string) || (n.message as string) || '',
+            type: (n.type as AppNotification['type']) || 'STATUS_CHANGED',
+            read: Boolean(n.read || n.readAt),
+            issueId: (n.issueId as string) || undefined,
+            createdAt: (n.createdAt as string) || new Date().toISOString(),
           })));
         }
       }).catch(() => {});
-    }, 6000);
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [isInitialized, currentUser, refreshIssues]);
 
-  // Persist state changes to LocalStorage
-  useEffect(() => {
-    if (!isInitialized) return;
-    try {
-      if (currentUser) {
-        localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser));
-      } else {
-        localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
-      }
-      localStorage.setItem(STORAGE_KEYS.ISSUES, JSON.stringify(issues));
-      localStorage.setItem(STORAGE_KEYS.COMMENTS, JSON.stringify(comments));
-      localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(statusHistory));
-      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
-      localStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(assets));
-      localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(reports));
-    } catch (e: unknown) {
-      console.error('Error persisting to localStorage', e);
-    }
-  }, [currentUser, issues, comments, statusHistory, notifications, assets, reports, isInitialized]);
-
   const login = async (email: string, password: string = 'Password123!'): Promise<User> => {
-    let loggedInUser: User;
+    const res = await apiClient.login(email, password);
 
-    try {
-      // Try logging in to the real backend
-      const res = await apiClient.login(email, password);
-
-      if (res.data) {
-        // ✅ Backend auth succeeded — use real user
-        loggedInUser = {
-          id: res.data.id,
-          name: res.data.name || email.split('@')[0],
-          email: res.data.email,
-          role: (res.data.role as UserRole) || 'STUDENT',
-          departmentId: 'dept-cse',
-          avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(res.data.name || email)}`,
-        };
-      } else if (res.status === 500 && res.error?.toLowerCase().includes('network')) {
-        // ⚠️ Backend genuinely unreachable — fall back to mock for offline/dev mode
-        const matched = MOCK_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase());
-        if (!matched) throw new Error('Backend unreachable and no matching dev account found.');
-        loggedInUser = matched;
-      } else {
-        // ❌ Auth error (wrong password, user not found, etc.) — throw so caller can display it
-        throw new Error(res.error || 'Invalid email or password.');
-      }
-    } catch (err: unknown) {
-      // Re-throw auth errors; only swallow genuine network exceptions with a mock fallback
-      if (err instanceof Error && err.message && !err.message.toLowerCase().includes('failed to fetch') && !err.message.toLowerCase().includes('networkerror')) {
-        throw err;
-      }
-      // Network exception (backend down) — fall back to mock for dev convenience
-      const matched = MOCK_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase());
-      if (!matched) throw new Error('Cannot reach the backend and no matching dev account found.');
-      loggedInUser = matched;
+    if (res.data) {
+      const loggedInUser: User = {
+        id: res.data.id,
+        name: res.data.name || email.split('@')[0],
+        email: res.data.email,
+        role: (res.data.role as UserRole) || 'STUDENT',
+        departmentId: 'dept-cse',
+        avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(res.data.name || email)}`,
+      };
+      setCurrentUser(loggedInUser);
+      try {
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(loggedInUser));
+      } catch {}
+      refreshIssues();
+      refreshAssets();
+      return loggedInUser;
+    } else {
+      throw new Error(res.error || 'Invalid email or password.');
     }
-
-    setCurrentUser(loggedInUser);
-    refreshIssues();
-    refreshAssets();
-    return loggedInUser;
   };
 
-  /**
-   * Set the current user directly from an auth response (used after Google OAuth and registration
-   * where the session is already established server-side — no need to call login() again).
-   */
   const setUserFromAuthResponse = (userData: { id: string; email: string; name: string | null; role: string }) => {
     const user: User = {
       id: userData.id,
@@ -448,6 +454,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(userData.name || userData.email)}`,
     };
     setCurrentUser(user);
+    try {
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+    } catch {}
     refreshIssues();
     refreshAssets();
     return user;
@@ -456,119 +465,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       await apiClient.logout();
-    } catch (e: unknown) {
+    } catch (e) {
       console.warn('Logout error:', e);
     }
     setCurrentUser(null);
     try {
       localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
-    } catch (e: unknown) {
-      console.warn('localStorage error:', e);
-    }
+    } catch {}
   };
 
   const createIssue = async (input: CreateIssueInput): Promise<Issue> => {
-    const newIssueId = `iss-${Date.now().toString().slice(-6)}`;
-    const nowISO = new Date().toISOString();
+    if (!currentUser) {
+      throw new Error('You must be signed in to report a problem.');
+    }
 
     const category = MOCK_CATEGORIES.find((c) => c.id === input.categoryId);
     const department = MOCK_DEPARTMENTS.find((d) => d.id === input.departmentId);
-    
-    const aiAnalysis: AIAnalysis = {
-      category: category?.name || 'General Equipment',
-      suggestedDepartment: department?.name || 'Facilities',
-      severity: input.priority,
-      priority: input.priority,
-      confidence: 0.94,
-      spamScore: 0.01,
-      moderationFlags: [],
-      duplicateCandidates: [],
-      reasoning: `AI evaluated symptoms: reported in ${department?.name}. Operational impact scored as ${input.priority}.`,
-      modelUsed: 'Gemini 2.5 Flash',
-    };
 
-    const reporter = currentUser || MOCK_USERS[0];
-
-    const localIssue: Issue = {
-      id: newIssueId,
+    const backendRes = await apiClient.createIssue({
       title: input.title,
       description: input.description,
-      categoryId: input.categoryId,
-      departmentId: input.departmentId,
-      locationId: input.locationId,
-      locationDetails: input.locationDetails,
-      assetId: input.assetId,
-      reporterId: reporter.id,
-      reporterName: reporter.name,
-      reporterEmail: reporter.email,
-      reporterRole: reporter.role,
-      status: 'REPORTED',
-      moderationStatus: 'NORMAL',
-      priority: input.priority,
-      possibleCause: input.possibleCause,
-      suggestedSolution: input.suggestedSolution,
-      occurredAt: input.occurredAt || new Date().toLocaleString(),
+      category: category?.name || input.categoryId,
+      department: department?.name || input.departmentId,
+      location: input.locationDetails || input.locationId,
+      suspectedCause: input.possibleCause,
+      proposedSolution: input.suggestedSolution,
       attachments: input.attachments || [],
-      affectedUserIds: [reporter.id],
-      followerUserIds: [reporter.id],
-      aiAnalysis,
-      createdAt: nowISO,
-      updatedAt: nowISO,
-    };
+    });
 
-    // Optimistic local update
-    setIssues((prev) => [localIssue, ...prev]);
-
-    const initialHistoryItem: IssueStatusHistory = {
-      id: `hist-${Date.now()}`,
-      issueId: newIssueId,
-      fromStatus: 'REPORTED',
-      toStatus: 'REPORTED',
-      changedById: reporter.id,
-      changedByName: reporter.name,
-      changedByRole: reporter.role,
-      reason: 'Issue submitted by reporter.',
-      createdAt: nowISO,
-    };
-
-    setStatusHistory((prev) => ({
-      ...prev,
-      [newIssueId]: [initialHistoryItem],
-    }));
-
-    // Async sync with Backend API
-    try {
-      const backendRes = await apiClient.createIssue({
-        title: input.title,
-        description: input.description,
-        category: category?.name || input.categoryId,
-        department: department?.name || input.departmentId,
-        location: input.locationDetails || input.locationId,
-        suspectedCause: input.possibleCause,
-        proposedSolution: input.suggestedSolution,
-        attachments: input.attachments || [],
-      });
-
-      if (backendRes.data) {
-        const serverIssue = mapBackendIssueToFrontend(backendRes.data);
-        setIssues((prev) => [serverIssue, ...prev.filter((i) => i.id !== newIssueId)]);
-        setStatusHistory((prev) => {
-          const updated = { ...prev };
-          if (updated[newIssueId]) {
-            updated[serverIssue.id] = updated[newIssueId].map(h => ({ ...h, issueId: serverIssue.id }));
-            delete updated[newIssueId];
-          }
-          return updated;
-        });
-        return serverIssue;
-      } else if (backendRes.error) {
-        console.error('Backend issue creation error:', backendRes.error);
-      }
-    } catch (e: unknown) {
-      console.warn('Backend issue creation sync error:', e);
+    if (backendRes.data) {
+      const serverIssue = mapBackendIssueToFrontend(backendRes.data);
+      setIssues((prev) => [serverIssue, ...prev.filter((i) => i.id !== serverIssue.id)]);
+      return serverIssue;
     }
 
-    return localIssue;
+    const errorMessage = backendRes.error || 'Failed to submit issue to server.';
+    throw new Error(errorMessage);
   };
 
   const toggleAffected = async (issueId: string) => {
@@ -593,7 +525,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       })
     );
 
-    // Call Backend API
     try {
       if (wasAffected) {
         const res = await apiClient.markUnaffected(issueId);
@@ -645,7 +576,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const res = await apiClient.followIssue(issueId);
         if (res.error) throw new Error(res.error);
       }
-    } catch (e) {}
+    } catch (e) {
+      // Rollback
+      setIssues((prev) =>
+        prev.map((iss) => {
+          if (iss.id !== issueId) return iss;
+          return {
+            ...iss,
+            followerUserIds: wasFollowing
+              ? [...iss.followerUserIds, currentUser.id]
+              : iss.followerUserIds.filter((id) => id !== currentUser.id),
+          };
+        })
+      );
+    }
   };
 
   const updateStatus = async (
@@ -718,6 +662,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ...prev,
           [issueId]: (prev[issueId] || []).filter((h) => h.id !== historyItem.id),
         }));
+        alert(res.error);
         return false;
       }
       return true;
@@ -766,7 +711,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createdAt: nowISO,
     };
 
-    // Optimistic update
     setIssues((prev) =>
       prev.map((iss) => {
         if (iss.id !== issueId) return iss;
@@ -807,6 +751,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         [issueId]: (prev[issueId] || []).filter((h) => h.id !== historyItem.id),
       }));
+      alert(res.error || 'Failed to submit resolution on server.');
       return false;
     } catch (e: unknown) {
       console.error('Submit resolution error:', e);
@@ -885,6 +830,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ...prev,
           [issueId]: (prev[issueId] || []).filter((h) => h.id !== historyItem.id),
         }));
+        alert(res.error);
         return false;
       }
       return true;
@@ -965,9 +911,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createdAt: new Date().toISOString(),
     };
 
-    const targetIssue = issues.find(i => i.id === issueId);
-    const previousModerationStatus = targetIssue ? targetIssue.moderationStatus : 'NORMAL';
-    
     setReports((prev) => [report, ...prev]);
     setIssues((prev) =>
       prev.map((i) => (i.id === issueId ? { ...i, moderationStatus: 'FLAGGED' } : i))
@@ -979,9 +922,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const moderateIssue = async (issueId: string, moderationStatus: ModerationStatus, reason?: string) => {
-    const targetIssue = issues.find(i => i.id === issueId);
-    const previousModerationStatus = targetIssue ? targetIssue.moderationStatus : 'NORMAL';
-
     setIssues((prev) =>
       prev.map((i) => (i.id === issueId ? { ...i, moderationStatus } : i))
     );
@@ -1010,7 +950,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addAsset = async (asset: Asset) => {
-    setAssets((prev) => [asset, ...prev.filter((a) => a.id !== asset.id && a.assetTag !== asset.assetTag)]);
     try {
       const res = await apiClient.createAsset({
         name: asset.name,
@@ -1024,11 +963,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         imageUrl: asset.imageUrl,
       });
       if (res.data) {
-        setAssets((prev) => [res.data, ...prev.filter((a) => a.id !== asset.id && a.id !== res.data.id)]);
+        const created: Asset = {
+          id: res.data.id,
+          name: res.data.name,
+          assetTag: res.data.assetTag,
+          category: res.data.category,
+          departmentId: res.data.departmentId,
+          locationId: res.data.locationId,
+          status: (res.data.status as Asset['status']) || 'OPERATIONAL',
+          modelNumber: res.data.modelNumber || undefined,
+          serialNumber: res.data.serialNumber || undefined,
+          installedAt: res.data.installedAt || new Date().toISOString().split('T')[0],
+          lastServicedAt: res.data.lastServicedAt || new Date().toISOString().split('T')[0],
+          reportedIssuesCount: res.data.reportedIssuesCount || 0,
+          imageUrl: res.data.imageUrl || undefined,
+          createdAt: res.data.createdAt,
+          updatedAt: res.data.updatedAt,
+        };
+        setAssets((prev) => [created, ...prev.filter((a) => a.id !== asset.id && a.id !== created.id)]);
+      } else {
+        alert(res.error || 'Failed to register asset.');
       }
     } catch (e: unknown) {
       console.warn('Backend createAsset error:', e);
-      setAssets((prev) => prev.filter((a) => a.id !== asset.id));
+      alert('Error connecting to server to register asset.');
     }
   };
 

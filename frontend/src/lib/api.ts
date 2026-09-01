@@ -26,24 +26,81 @@ export interface Issue {
   id: string;
   title: string;
   description: string;
+  category?: string;
+  department?: string;
+  location?: string;
   status: string;
   priority: string;
-  categoryId: string;
-  departmentId: string;
-  locationId: string;
+  categoryId?: string;
+  departmentId?: string;
+  locationId?: string;
   reporterId: string;
-  affectedUserIds: string[];
+  reporter?: {
+    id: string;
+    name?: string | null;
+    email?: string;
+    role?: string;
+  };
+  reporterName?: string;
+  reporterEmail?: string;
+  reporterRole?: string;
+  affectedUserCount?: number;
+  affectedUserIds?: string[];
+  followerUserIds?: string[];
+  followers?: Array<{ userId: string; issueId: string }>;
+  participants?: Array<{ userId: string; issueId: string }>;
+  comments?: Array<{
+    id: string;
+    authorId: string;
+    content: string;
+    createdAt: string;
+    author?: { id: string; name?: string | null; role?: string };
+  }>;
+  statusHistory?: Array<{
+    id: string;
+    fromStatus: string;
+    toStatus: string;
+    reason?: string | null;
+    createdAt: string;
+  }>;
+  resolutions?: Array<{
+    id: string;
+    resolvedById: string;
+    description: string;
+    createdAt: string;
+    resolvedBy?: { id: string; name?: string | null };
+    evidenceImages?: Array<{ storageKey: string; mimeType: string; fileSize: number }>;
+  }>;
+  analysis?: {
+    category: string;
+    suggestedDepartment?: string | null;
+    severity: string;
+    aiPriority: string;
+    confidence?: number;
+    spamScore?: number;
+    moderationFlags?: string[];
+    duplicateCandidates?: string[];
+    reasoning?: string | null;
+    modelUsed?: string | null;
+  } | null;
+  assetId?: string | null;
+  asset?: Asset | null;
   createdAt: string;
   updatedAt: string;
   locationDetails?: string;
   possibleCause?: string;
+  suspectedCause?: string | null;
   suggestedSolution?: string;
+  proposedSolution?: string | null;
   occurredAt?: string;
   attachments?: string[];
   resolutionProof?: {
-    description: string;
+    description?: string;
+    notes?: string;
     imageUrl?: string;
-    resolvedAt: string;
+    resolvedAt?: string;
+    resolvedById?: string;
+    resolvedByName?: string;
   };
   moderationStatus?: string;
 }
@@ -51,8 +108,19 @@ export interface Issue {
 export interface IssueComment {
   id: string;
   issueId: string;
-  userId: string;
+  userId?: string;
+  authorId?: string;
+  authorName?: string;
+  userName?: string;
+  authorRole?: string;
+  userRole?: string;
   content: string;
+  body?: string;
+  author?: {
+    id: string;
+    name?: string | null;
+    role?: string;
+  };
   createdAt: string;
 }
 
@@ -63,12 +131,15 @@ export interface Asset {
   category: string;
   departmentId: string;
   locationId: string;
-  status: string;
-  modelNumber?: string;
-  serialNumber?: string;
-  imageUrl?: string;
-  createdAt: string;
-  updatedAt: string;
+  status: 'OPERATIONAL' | 'DEGRADED' | 'OUT_OF_SERVICE' | 'UNDER_MAINTENANCE' | string;
+  modelNumber?: string | null;
+  serialNumber?: string | null;
+  installedAt?: string;
+  lastServicedAt?: string;
+  reportedIssuesCount?: number;
+  imageUrl?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface IssueStatusHistory {
@@ -76,9 +147,13 @@ export interface IssueStatusHistory {
   issueId: string;
   fromStatus: string;
   toStatus: string;
-  changedBy: string;
-  changedAt: string;
-  reason?: string;
+  changedBy?: string;
+  changedById?: string;
+  changedByName?: string;
+  changedByRole?: string;
+  changedAt?: string;
+  createdAt?: string;
+  reason?: string | null;
 }
 
 function buildApiUrl(endpoint: string): string {

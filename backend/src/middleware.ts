@@ -3,13 +3,13 @@ import type { NextRequest } from "next/server";
 import { checkRateLimit, getRateLimitIdentifier, getRateLimitHeaders } from "@/lib/middleware/rateLimit";
 
 /**
- * Proxy for CORS and rate limiting
+ * Next.js Edge Middleware for CORS, security headers, and rate limiting
  */
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const origin = request.headers.get("origin") || "";
   const configuredFrontend = process.env.FRONTEND_URL?.replace(/\/$/, "");
 
-  // Determine allowed origin for CORS (supports all Vercel previews and production)
+  // Determine allowed origin for CORS (supports configured frontend, localhost, and Vercel deployments)
   let allowedOrigin = configuredFrontend || origin || "http://localhost:3001";
   if (origin) {
     if (

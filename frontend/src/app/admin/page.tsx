@@ -30,6 +30,7 @@ export default function AdminDashboardPage() {
   } = useApp();
   
   const [activeTab, setActiveTab] = useState<'workorders' | 'moderation' | 'ai_insights'>('workorders');
+  const [selectedIssueForProof, setSelectedIssueForProof] = useState<{ id: string; title: string } | null>(null);
 
   useEffect(() => {
     if (!isLoadingAuth && !currentUser) {
