@@ -66,14 +66,16 @@ export interface Asset {
   lastServicedAt: string;
   reportedIssuesCount: number;
   imageUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ResolutionProof {
   imageUrl: string;
-  resolvedById: string;
-  resolvedByName: string;
+  resolvedById?: string;
+  resolvedByName?: string;
   notes: string;
-  resolvedAt: string;
+  resolvedAt?: string;
 }
 
 export interface ReopenDetails {
@@ -87,16 +89,16 @@ export interface ReopenDetails {
 export interface AIAnalysis {
   category: string;
   suggestedDepartment: string;
-  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  severity: IssuePriority;
+  priority: IssuePriority;
   confidence: number;
   spamScore: number;
   moderationFlags: string[];
-  duplicateCandidates: {
+  duplicateCandidates: Array<{
     issueId: string;
     title?: string;
     confidence: number;
-  }[];
+  } | string>;
   reasoning?: string;
   modelUsed?: string;
 }
@@ -105,7 +107,7 @@ export interface IssueReport {
   id: string;
   issueId: string;
   reporterId: string;
-  reporterName: string;
+  reporterName?: string;
   reason: 'spam' | 'duplicate' | 'inappropriate' | 'misleading' | 'sensitive_info' | 'other';
   details?: string;
   createdAt: string;
@@ -183,10 +185,11 @@ export interface IssueStatusHistory {
 export interface AppNotification {
   id: string;
   userId: string;
-  type: 'ISSUE_CREATED' | 'STATUS_CHANGED' | 'ASSIGNMENT' | 'COMMENT' | 'REOPENED' | 'VERIFIED' | 'AFFECTED_UPVOTE' | 'MODERATION';
+  type: 'ISSUE_CREATED' | 'STATUS_CHANGED' | 'ASSIGNMENT' | 'COMMENT' | 'REOPENED' | 'VERIFIED' | 'AFFECTED_UPVOTE' | 'MODERATION' | 'RESOLUTION_SUBMITTED';
   title: string;
   body: string;
   issueId?: string;
   read: boolean;
   createdAt: string;
 }
+

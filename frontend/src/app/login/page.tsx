@@ -73,7 +73,7 @@ export default function LoginPage() {
       try {
         setIsSubmitting(true);
         const tokenClient = window.google.accounts.oauth2.initTokenClient({
-          client_id: googleClientId,
+          client_id: googleClientId || '',
           scope: 'email profile openid',
           hosted_domain: 'cet.ac.in',
           callback: async (tokenResponse: { error?: string; error_description?: string; access_token?: string; id_token?: string }) => {

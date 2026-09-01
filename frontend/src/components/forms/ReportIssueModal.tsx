@@ -33,6 +33,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
     currentUser,
     departments,
     categories,
+    assets,
     issues,
     createIssue,
     toggleAffected,
@@ -43,6 +44,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
   const [departmentId, setDepartmentId] = useState(departments[0]?.id || 'dept-facilities');
   const [locationDetails, setLocationDetails] = useState('');
   const [categoryId, setCategoryId] = useState(categories[0]?.id || 'cat-general');
+  const [assetId, setAssetId] = useState('');
   const [priority, setPriority] = useState<IssuePriority>('MEDIUM');
   const [possibleCause, setPossibleCause] = useState('');
   const [suggestedSolution, setSuggestedSolution] = useState('');

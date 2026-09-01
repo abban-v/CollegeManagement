@@ -360,7 +360,7 @@ export default function IssueDetailPage() {
                 <div className="flex items-center gap-3 text-[11px] text-emerald-300/80">
                   <span>Submitted by: <strong>{issue.resolutionProof.resolvedByName}</strong></span>
                   <span>&bull;</span>
-                  <span>Date: {new Date(issue.resolutionProof.resolvedAt).toLocaleDateString()}</span>
+                  <span>Date: {new Date(issue.resolutionProof.resolvedAt || issue.updatedAt).toLocaleDateString()}</span>
                 </div>
               </div>
 

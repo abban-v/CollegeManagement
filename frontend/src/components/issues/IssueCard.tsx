@@ -116,7 +116,7 @@ export const IssueCard: React.FC<IssueCardProps> = ({ issue }) => {
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               <span className="font-medium">{issue.status === 'VERIFIED' ? 'Verified Fix' : 'Proof Submitted'}</span>
             </div>
-            <span className="text-[10px] text-emerald-400/80">by {issue.resolutionProof.resolvedByName.split(' ')[0]}</span>
+            <span className="text-[10px] text-emerald-400/80">by {(issue.resolutionProof.resolvedByName || 'Staff').split(' ')[0]}</span>
           </div>
         )}
 
