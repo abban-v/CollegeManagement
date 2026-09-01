@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
   User,
   Issue,
@@ -122,52 +122,86 @@ function findDepartmentIdentifier(nameOrId?: string): string {
 
 // Helper to adapt backend issue object to frontend Issue type
 function mapBackendIssueToFrontend(item: Record<string, unknown>): Issue {
-  const categoryId = findCategoryIdentifier(item.category as string);
-  const departmentId = findDepartmentIdentifier(item.department as string);
+  const categoryId = findCategoryIdentifier(String(item.category ?? ''));
+  const departmentId = findDepartmentIdentifier(String(item.department ?? ''));
+  const reporter = (item.reporter as { name?: string; email?: string; role?: string } | undefined) ?? {};
+  const resolutionArray = Array.isArray(item.resolutions) ? (item.resolutions as Array<Record<string, unknown>>) : [];
+  const analysis = (item.analysis as Record<string, unknown> | undefined) ?? undefined;
+  const resolutionProofValue = item.resolutionProof as Record<string, unknown> | undefined;
+  const resolutionEntry = resolutionArray[0];
+  const evidenceImages = Array.isArray(resolutionEntry?.evidenceImages)
+    ? (resolutionEntry.evidenceImages as Array<Record<string, unknown>>)
+    : [];
+
+  const mappedResolutionProof = resolutionEntry
+    ? {
+        imageUrl: formatImageUrl(
+          (String((evidenceImages[0]?.storageKey as string | undefined) ?? '') || String((resolutionProofValue?.imageUrl as string | undefined) ?? ''))
+        ),
+        resolvedById: String((resolutionEntry.resolvedById as string | undefined) ?? 'unknown'),
+        resolvedByName: String(((resolutionEntry.resolvedBy as Record<string, unknown> | undefined)?.name as string | undefined) ?? 'Facilities Official'),
+        notes: String((resolutionEntry.description as string | undefined) ?? ''),
+        resolvedAt: String((resolutionEntry.createdAt as string | undefined) ?? new Date().toISOString()),
+      }
+    : resolutionProofValue
+      ? {
+          imageUrl: formatImageUrl(String(resolutionProofValue.imageUrl ?? '')),
+          resolvedById: String((resolutionProofValue.resolvedById as string | undefined) ?? 'unknown'),
+          resolvedByName: String((resolutionProofValue.resolvedByName as string | undefined) ?? 'Facilities Official'),
+          notes: String((resolutionProofValue.notes as string | undefined) ?? ''),
+          resolvedAt: String((resolutionProofValue.resolvedAt as string | undefined) ?? new Date().toISOString()),
+        }
+      : undefined;
+
+  const mappedAnalysis = analysis
+    ? {
+        category: String(analysis.category ?? 'General Equipment'),
+        suggestedDepartment: String(analysis.suggestedDepartment ?? 'Facilities'),
+        severity: (String(analysis.severity ?? 'MEDIUM') as AIAnalysis['severity']) || 'MEDIUM',
+        priority: (String((analysis.aiPriority ?? analysis.priority) ?? 'MEDIUM') as AIAnalysis['priority']) || 'MEDIUM',
+        confidence: typeof analysis.confidence === 'number' ? analysis.confidence : 0.94,
+        spamScore: typeof analysis.spamScore === 'number' ? analysis.spamScore : 0.01,
+        moderationFlags: Array.isArray(analysis.moderationFlags) ? analysis.moderationFlags.map(String) : [],
+        duplicateCandidates: Array.isArray(analysis.duplicateCandidates) ? analysis.duplicateCandidates.map((candidate) => ({
+          issueId: String((candidate as Record<string, unknown>).issueId ?? 'unknown'),
+          title: String((candidate as Record<string, unknown>).title ?? ''),
+          confidence: typeof (candidate as Record<string, unknown>).confidence === 'number' ? Number((candidate as Record<string, unknown>).confidence) : 0,
+        })) : [],
+        reasoning: String(analysis.reasoning ?? 'Automated AI categorization complete.'),
+        modelUsed: String(analysis.modelUsed ?? 'Gemini 2.5 Flash'),
+      }
+    : undefined;
 
   return {
-    id: item.id as string,
-    title: item.title as string,
-    description: item.description as string,
+    id: String(item.id ?? 'unknown'),
+    title: String(item.title ?? 'Untitled issue'),
+    description: String(item.description ?? ''),
     categoryId,
     departmentId,
-    locationId: (item.location as string) || 'loc-main',
-    locationDetails: (item.location as string) || '',
-    assetId: (item.assetId as string) || undefined,
-    reporterId: (item.reporterId as string) || 'unknown',
-    reporterName: (item.reporter as { name?: string })?.name || (item.reporterName as string) || 'Campus Member',
-    reporterEmail: (item.reporter as { email?: string })?.email || (item.reporterEmail as string) || '',
-    reporterRole: (item.reporter as { role?: string })?.role || (item.reporterRole as string) || 'STUDENT',
+    locationId: String(item.location ?? 'loc-main'),
+    locationDetails: String(item.location ?? ''),
+    assetId: typeof item.assetId === 'string' ? item.assetId : undefined,
+    reporterId: String(item.reporterId ?? 'unknown'),
+    reporterName: reporter.name || String(item.reporterName ?? 'Campus Member'),
+    reporterEmail: reporter.email || String(item.reporterEmail ?? ''),
+    reporterRole: (reporter.role as UserRole) || (String(item.reporterRole ?? 'STUDENT') as UserRole),
     status: (item.status as IssueStatus) || 'REPORTED',
     moderationStatus: (item.moderationStatus as ModerationStatus) || 'NORMAL',
     priority: (item.priority as IssuePriority) || 'MEDIUM',
-    possibleCause: (item.suspectedCause as string) || (item.possibleCause as string),
-    suggestedSolution: (item.proposedSolution as string) || (item.suggestedSolution as string),
-    occurredAt: (item.occurredAt as string) || new Date(item.createdAt as string).toLocaleString(),
-    attachments: Array.isArray(item.attachments) ? item.attachments.map((a: string) => formatImageUrl(a)) : [],
-    affectedUserIds: (item.participants as Array<{ userId: string }>)?.map((p) => p.userId) || ((item.reporterId as string) ? [item.reporterId as string] : []),
-    followerUserIds: (item.followers as Array<{ userId: string }>)?.map((f) => f.userId) || ((item.reporterId as string) ? [item.reporterId as string] : []),
-    aiAnalysis: item.analysis ? {
-      category: (item.analysis as { category: string }).category,
-      suggestedDepartment: (item.analysis as { suggestedDepartment?: string }).suggestedDepartment || 'Facilities',
-      severity: (item.analysis as { severity: string }).severity,
-      priority: (item.analysis as { aiPriority: string }).aiPriority,
-      confidence: typeof (item.analysis as { confidence?: number }).confidence === 'number' ? (item.analysis as { confidence: number }).confidence : 0.94,
-      spamScore: typeof (item.analysis as { spamScore?: number }).spamScore === 'number' ? (item.analysis as { spamScore: number }).spamScore : 0.01,
-      moderationFlags: (item.analysis as { moderationFlags?: string[] }).moderationFlags || [],
-      duplicateCandidates: (item.analysis as { duplicateCandidates?: string[] }).duplicateCandidates || [],
-      reasoning: (item.analysis as { reasoning?: string }).reasoning || 'Automated AI categorization complete.',
-      modelUsed: (item.analysis as { modelUsed?: string }).modelUsed || 'Gemini 2.5 Flash',
-    } : undefined,
-    resolutionProof: (item.resolutions as Array<Record<string, unknown>>)?.[0] ? {
-      imageUrl: formatImageUrl(((item.resolutions as Array<Record<string, unknown>>)[0].evidenceImages as Array<Record<string, unknown>>)?.[0]?.storageKey as string || (item.resolutionProof as Record<string, unknown>)?.imageUrl as string),
-      resolvedById: (item.resolutions as Array<Record<string, unknown>>)[0].resolvedById as string,
-      resolvedByName: ((item.resolutions as Array<Record<string, unknown>>)[0].resolvedBy as Record<string, unknown>)?.name as string || 'Facilities Official',
-      notes: (item.resolutions as Array<Record<string, unknown>>)[0].description as string,
-      resolvedAt: (item.resolutions as Array<Record<string, unknown>>)[0].createdAt as string,
-    } : (item.resolutionProof ? { ...(item.resolutionProof as Record<string, unknown>), imageUrl: formatImageUrl((item.resolutionProof as Record<string, unknown>).imageUrl as string) } : undefined),
-    createdAt: item.createdAt as string,
-    updatedAt: item.updatedAt as string,
+    possibleCause: (item.suspectedCause as string | undefined) ?? (item.possibleCause as string | undefined),
+    suggestedSolution: (item.proposedSolution as string | undefined) ?? (item.suggestedSolution as string | undefined),
+    occurredAt: String(item.occurredAt ?? new Date(String(item.createdAt ?? new Date().toISOString())).toLocaleString()),
+    attachments: Array.isArray(item.attachments) ? item.attachments.map((a) => formatImageUrl(String(a))) : [],
+    affectedUserIds: Array.isArray((item.participants as Array<Record<string, unknown>> | undefined))
+      ? ((item.participants as Array<Record<string, unknown>>).map((p) => String(p.userId ?? ''))).filter(Boolean)
+      : ((item.reporterId as string | undefined) ? [String(item.reporterId)] : []),
+    followerUserIds: Array.isArray((item.followers as Array<Record<string, unknown>> | undefined))
+      ? ((item.followers as Array<Record<string, unknown>>).map((f) => String(f.userId ?? ''))).filter(Boolean)
+      : ((item.reporterId as string | undefined) ? [String(item.reporterId)] : []),
+    aiAnalysis: mappedAnalysis,
+    resolutionProof: mappedResolutionProof,
+    createdAt: String(item.createdAt ?? new Date().toISOString()),
+    updatedAt: String(item.updatedAt ?? new Date().toISOString()),
   };
 }
 
@@ -181,13 +215,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [assets, setAssets] = useState<Asset[]>(MOCK_ASSETS);
   const [reports, setReports] = useState<IssueReport[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  const pendingStatusTransitions = useRef<Set<string>>(new Set());
 
   // Fetch real issues from backend
   const refreshIssues = useCallback(async () => {
     try {
       const res = await apiClient.listIssues({ take: 100 });
       if (res.data?.issues) {
-        const mapped = res.data.issues.map(mapBackendIssueToFrontend);
+        const mapped = ((res.data as any)?.issues ?? []).map((item: Record<string, unknown>) => mapBackendIssueToFrontend(item));
         setIssues((prev) => {
           const optimistic = prev.filter(i => i.id.startsWith('iss-'));
           return [...mapped, ...optimistic];
@@ -203,14 +238,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await apiClient.listAssets({ take: 100 });
       if (res.data?.assets) {
-        setAssets(res.data.assets.map((a) => ({
+        setAssets(((res.data as any)?.assets ?? []).map((a: any) => ({
           id: a.id,
           name: a.name,
           assetTag: a.assetTag,
           category: a.category,
           departmentId: a.departmentId,
           locationId: a.locationId,
-          status: a.status,
+          status: (a.status as Asset['status']) || 'OPERATIONAL',
           modelNumber: a.modelNumber || undefined,
           serialNumber: a.serialNumber || undefined,
           installedAt: a.installedAt || new Date().toISOString(),
@@ -229,13 +264,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await apiClient.getIssue(issueId);
       if (res.data) {
-        const mapped = mapBackendIssueToFrontend(res.data);
+        const mapped = mapBackendIssueToFrontend((res.data as any) ?? {} as Record<string, unknown>);
         setIssues((prev) => [mapped, ...prev.filter((i) => i.id !== issueId)]);
 
-        if (res.data.comments && Array.isArray(res.data.comments)) {
+        const detailData = res.data as any;
+        if (detailData?.comments && Array.isArray(detailData.comments)) {
           setComments((prev) => ({
             ...prev,
-            [issueId]: res.data.comments.map((c: { id: string; authorId: string; author?: { name?: string; role?: string }; content: string; createdAt: string }) => ({
+            [issueId]: detailData.comments.map((c: { id: string; authorId: string; author?: { name?: string; role?: string }; content: string; createdAt: string }) => ({
               id: c.id,
               issueId,
               userId: c.authorId,
@@ -251,10 +287,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }));
         }
 
-        if (res.data.statusHistory && Array.isArray(res.data.statusHistory)) {
+        if (detailData?.statusHistory && Array.isArray(detailData.statusHistory)) {
           setStatusHistory((prev) => ({
             ...prev,
-            [issueId]: res.data.statusHistory.map((h: { id: string; fromStatus: string; toStatus: string; changedBy?: string; createdAt: string; reason?: string }) => ({
+            [issueId]: detailData.statusHistory.map((h: { id: string; fromStatus: string; toStatus: string; changedBy?: string; createdAt: string; reason?: string }) => ({
               id: h.id,
               issueId,
               fromStatus: h.fromStatus,
@@ -322,12 +358,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try {
           const notifRes = await apiClient.getNotifications();
           if (notifRes.data?.notifications && notifRes.data.notifications.length > 0) {
-            setNotifications(notifRes.data.notifications.map((n: { id: string; userId: string; title: string; body?: string; message?: string; type?: string; read?: boolean; issueId?: string; createdAt: string }) => ({
+            setNotifications((notifRes.data.notifications as any[]).map((n: any) => ({
               id: n.id,
               userId: n.userId,
               title: n.title,
               body: n.body || n.message || '',
-              type: (n.type as 'STATUS_CHANGED' | 'NEW_COMMENT' | 'RESOLUTION_SUBMITTED' | 'ISSUE_VERIFIED') || 'STATUS_CHANGED',
+              type: (n.type as AppNotification['type']) || 'STATUS_CHANGED',
               read: Boolean(n.read),
               issueId: n.issueId,
               createdAt: n.createdAt,
@@ -550,7 +586,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (backendRes.data) {
-        const serverIssue = mapBackendIssueToFrontend(backendRes.data);
+        const serverIssue = mapBackendIssueToFrontend((backendRes.data as any) ?? {} as Record<string, unknown>);
         setIssues((prev) => [serverIssue, ...prev.filter((i) => i.id !== newIssueId)]);
         setStatusHistory((prev) => {
           const updated = { ...prev };
@@ -656,10 +692,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   ): Promise<boolean> => {
     const targetIssue = issues.find((i) => i.id === issueId);
     if (!targetIssue || !currentUser) return false;
+    if (pendingStatusTransitions.current.has(issueId)) return false;
+    if (targetIssue.status === newStatus) return true;
 
-    if (targetIssue.status === newStatus) {
-      return true;
-    }
+    pendingStatusTransitions.current.add(issueId);
 
     const previousStatus = targetIssue.status;
     const nowISO = new Date().toISOString();
@@ -731,6 +767,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         [issueId]: (prev[issueId] || []).filter((h) => h.id !== historyItem.id),
       }));
       return false;
+    } finally {
+      pendingStatusTransitions.current.delete(issueId);
     }
   };
 
@@ -1024,7 +1062,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         imageUrl: asset.imageUrl,
       });
       if (res.data) {
-        setAssets((prev) => [res.data, ...prev.filter((a) => a.id !== asset.id && a.id !== res.data.id)]);
+        setAssets((prev) => {
+          if (!res.data) return prev;
+          const nextAsset = res.data as any as Asset;
+          return [nextAsset, ...prev.filter((a) => a.id !== asset.id && a.id !== nextAsset.id)];
+        });
       }
     } catch (e: unknown) {
       console.warn('Backend createAsset error:', e);

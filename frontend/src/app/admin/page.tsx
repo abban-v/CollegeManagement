@@ -30,6 +30,7 @@ export default function AdminDashboardPage() {
   } = useApp();
   
   const [activeTab, setActiveTab] = useState<'workorders' | 'moderation' | 'ai_insights'>('workorders');
+  const [selectedIssueForProof, setSelectedIssueForProof] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoadingAuth && !currentUser) {
@@ -255,7 +256,7 @@ export default function AdminDashboardPage() {
                           <td className="py-3.5 text-right space-x-2">
                             {(issue.status === 'REPORTED' || issue.status === 'UNDER_REVIEW' || issue.status === 'IN_PROGRESS' || issue.status === 'REOPENED') ? (
                               <button
-                                onClick={() => setSelectedIssueForProof({ id: issue.id, title: issue.title })}
+                                onClick={() => setSelectedIssueForProof(issue.id)}
                                 className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] transition-colors"
                               >
                                 Submit Proof
@@ -382,8 +383,8 @@ export default function AdminDashboardPage() {
       {/* Resolution Proof Modal */}
       {selectedIssueForProof && (
         <ResolutionProofModal
-          issueId={selectedIssueForProof.id}
-          issueTitle={selectedIssueForProof.title}
+          issueId={selectedIssueForProof}
+          issueTitle={selectedIssueForProof}
           isOpen={true}
           onClose={() => setSelectedIssueForProof(null)}
         />

@@ -385,30 +385,49 @@ export class IssueService {
     reason: string,
     transitionedBy: string
   ) {
-    const issue = await prisma.issue.findUniqueOrThrow({
-      where: { id },
-    });
-
-    // Validate transition
-    const isValidTransition = this.isValidTransition(issue.status, toStatus);
-    if (!isValidTransition) {
-      throw new Error(
-        `Cannot transition from ${issue.status} to ${toStatus}`
-      );
-    }
-
-    // Update status and log the transition
     return await prisma.$transaction(async (tx) => {
-      // Update the issue status
-      const updated = await tx.issue.update({
+      const issue = await tx.issue.findUnique({
         where: { id },
+      });
+
+      if (!issue) {
+        throw new Error(`Issue not found: ${id}`);
+      }
+
+      if (issue.status === toStatus) {
+        return issue;
+      }
+
+      const isValidTransition = this.isValidTransition(issue.status, toStatus);
+      if (!isValidTransition) {
+        throw new Error(
+          `Cannot transition from ${issue.status} to ${toStatus}`
+        );
+      }
+
+      const updateResult = await tx.issue.updateMany({
+        where: {
+          id,
+          status: issue.status,
+        },
         data: {
           status: toStatus,
           updatedAt: new Date(),
         },
       });
 
-      // Record status change
+      if (updateResult.count === 0) {
+        const latestIssue = await tx.issue.findUnique({ where: { id } });
+        if (latestIssue && latestIssue.status === toStatus) {
+          return latestIssue;
+        }
+        throw new Error(`Issue ${id} has already transitioned and cannot be updated again.`);
+      }
+
+      const updated = await tx.issue.findUniqueOrThrow({
+        where: { id },
+      });
+
       await tx.issueStatusHistory.create({
         data: {
           issueId: id,
@@ -418,7 +437,6 @@ export class IssueService {
         },
       });
 
-      // Create audit log
       await tx.auditLog.create({
         data: {
           issueId: id,

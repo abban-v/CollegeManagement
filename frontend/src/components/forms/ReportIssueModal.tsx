@@ -50,6 +50,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
   const [selectedImage, setSelectedImage] = useState<string>('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'diagnostics' | 'evidence'>('details');
+  const [assetId, setAssetId] = useState<string | undefined>(undefined);
 
   // Duplicate detection
   const potentialDuplicates = useMemo(() => {

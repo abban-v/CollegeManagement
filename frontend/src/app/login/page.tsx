@@ -36,11 +36,12 @@ export default function LoginPage() {
   const router = useRouter();
   const { setUserFromAuthResponse } = useApp();
 
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [emailInput, setEmailInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSetupModal, setShowSetupModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
   const isGoogleConfigured = Boolean(
     googleClientId &&
     !googleClientId.includes('YOUR_GOOGLE_CLIENT_ID') &&
