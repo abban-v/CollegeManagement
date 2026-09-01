@@ -22,6 +22,65 @@ export interface AuthUser {
   role: 'STUDENT' | 'OFFICIAL' | 'MODERATOR' | 'ADMIN';
 }
 
+export interface Issue {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  categoryId: string;
+  departmentId: string;
+  locationId: string;
+  reporterId: string;
+  affectedUserIds: string[];
+  createdAt: string;
+  updatedAt: string;
+  locationDetails?: string;
+  possibleCause?: string;
+  suggestedSolution?: string;
+  occurredAt?: string;
+  attachments?: string[];
+  resolutionProof?: {
+    description: string;
+    imageUrl?: string;
+    resolvedAt: string;
+  };
+  moderationStatus?: string;
+}
+
+export interface IssueComment {
+  id: string;
+  issueId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface Asset {
+  id: string;
+  name: string;
+  assetTag: string;
+  category: string;
+  departmentId: string;
+  locationId: string;
+  status: string;
+  modelNumber?: string;
+  serialNumber?: string;
+  imageUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IssueStatusHistory {
+  id: string;
+  issueId: string;
+  fromStatus: string;
+  toStatus: string;
+  changedBy: string;
+  changedAt: string;
+  reason?: string;
+}
+
 function buildApiUrl(endpoint: string): string {
   if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
     return endpoint;
@@ -137,14 +196,14 @@ export const apiClient = {
     if (params.priority && params.priority !== 'ALL') searchParams.set('priority', params.priority);
 
     const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
-    return apiFetch<{ issues: Array<any>; total: number; pages: number; skip: number; take: number }>(
+    return apiFetch<{ issues: Array<Issue>; total: number; pages: number; skip: number; take: number }>(
       `/issues${query}`,
       { method: 'GET' }
     );
   },
 
   async getIssue(id: string) {
-    return apiFetch<any>(`/issues/${id}`, { method: 'GET' });
+    return apiFetch<Issue>(`/issues/${id}`, { method: 'GET' });
   },
 
   async createIssue(data: {
@@ -157,21 +216,21 @@ export const apiClient = {
     proposedSolution?: string;
     attachments?: string[];
   }) {
-    return apiFetch<any>('/issues', { method: 'POST', body: JSON.stringify(data) });
+    return apiFetch<Issue>('/issues', { method: 'POST', body: JSON.stringify(data) });
   },
 
   // ─── Affected ──────────────────────────────────────────────────────────────
 
   /** Mark the current user as affected by this issue (POST) */
   async markAffected(issueId: string) {
-    return apiFetch<{ message: string; issue: any }>(`/issues/${issueId}/affected`, {
+    return apiFetch<{ message: string; issue: Issue }>(`/issues/${issueId}/affected`, {
       method: 'POST',
     });
   },
 
   /** Remove the current user's affected marker (DELETE) */
   async markUnaffected(issueId: string) {
-    return apiFetch<{ message: string; issue: any }>(`/issues/${issueId}/affected`, {
+    return apiFetch<{ message: string; issue: Issue }>(`/issues/${issueId}/affected`, {
       method: 'DELETE',
     });
   },
@@ -195,7 +254,7 @@ export const apiClient = {
   // ─── Comments ──────────────────────────────────────────────────────────────
 
   async addComment(issueId: string, content: string) {
-    return apiFetch<any>(`/issues/${issueId}/comments`, {
+    return apiFetch<IssueComment>(`/issues/${issueId}/comments`, {
       method: 'POST',
       body: JSON.stringify({ content }),
     });
@@ -208,7 +267,7 @@ export const apiClient = {
    * Backend expects `uploadIds` — an array of UUIDs obtained from a prior /upload call.
    */
   async submitResolution(issueId: string, description: string, uploadIds: string[]) {
-    return apiFetch<any>(`/admin/issues/${issueId}/resolve`, {
+    return apiFetch<Issue>(`/admin/issues/${issueId}/resolve`, {
       method: 'POST',
       body: JSON.stringify({ description, uploadIds }),
     });
@@ -219,7 +278,7 @@ export const apiClient = {
    * `evidenceUrls` is optional — these are plain image URLs (not uploadIds).
    */
   async disputeResolution(issueId: string, reason: string, evidenceUrls?: string[]) {
-    return apiFetch<any>(`/issues/${issueId}/dispute`, {
+    return apiFetch<Issue>(`/issues/${issueId}/dispute`, {
       method: 'POST',
       body: JSON.stringify({ reason, evidenceUrls: evidenceUrls || [] }),
     });
@@ -230,7 +289,7 @@ export const apiClient = {
    * `reason` must be a lowercase enum: 'spam' | 'duplicate' | 'inappropriate' | 'misleading' | 'other'
    */
   async reportContent(issueId: string, reason: string, details?: string) {
-    return apiFetch<any>(`/issues/${issueId}/report`, {
+    return apiFetch<Issue>(`/issues/${issueId}/report`, {
       method: 'POST',
       // Backend ReportIssueSchema expects lowercase enum values — do NOT uppercase
       body: JSON.stringify({ reason, details }),
@@ -240,11 +299,11 @@ export const apiClient = {
   // ─── Admin / Moderation ────────────────────────────────────────────────────
 
   async getModerationQueue() {
-    return apiFetch<{ flaggedIssues: Array<any> }>('/admin/moderation', { method: 'GET' });
+    return apiFetch<{ flaggedIssues: Array<Issue> }>('/admin/moderation', { method: 'GET' });
   },
 
   async moderateIssue(issueId: string, moderationStatus: string, reason?: string) {
-    return apiFetch<any>(`/admin/moderation/${issueId}`, {
+    return apiFetch<Issue>(`/admin/moderation/${issueId}`, {
       method: 'PATCH',
       body: JSON.stringify({ moderationStatus, reason }),
     });
@@ -253,7 +312,7 @@ export const apiClient = {
   // ─── Status Transitions ───────────────────────────────────────────────────
 
   async transitionStatus(issueId: string, toStatus: string, reason?: string) {
-    return apiFetch<{ message: string; issue: any }>(`/issues/${issueId}/status`, {
+    return apiFetch<{ message: string; issue: Issue }>(`/issues/${issueId}/status`, {
       method: 'POST',
       body: JSON.stringify({ toStatus, reason }),
     });
@@ -262,11 +321,11 @@ export const apiClient = {
   // ─── Notifications ─────────────────────────────────────────────────────────
 
   async getNotifications() {
-    return apiFetch<{ notifications: Array<any> }>('/notifications', { method: 'GET' });
+    return apiFetch<{ notifications: Array<{ id: string; issueId: string; message: string; createdAt: string; read: boolean }> }>('/notifications', { method: 'GET' });
   },
 
   async markNotificationRead(id: string) {
-    return apiFetch<any>(`/notifications/${id}/read`, { method: 'PATCH' });
+    return apiFetch<{ id: string; read: boolean }>(`/notifications/${id}/read`, { method: 'PATCH' });
   },
 
   async markAllNotificationsRead() {
@@ -285,13 +344,13 @@ export const apiClient = {
     if (params.take) searchParams.set('take', params.take.toString());
 
     const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
-    return apiFetch<{ assets: Array<any>; total: number; skip: number; take: number }>(`/assets${query}`, {
+    return apiFetch<{ assets: Array<Asset>; total: number; skip: number; take: number }>(`/assets${query}`, {
       method: 'GET',
     });
   },
 
   async getAsset(id: string) {
-    return apiFetch<any>(`/assets/${id}`, { method: 'GET' });
+    return apiFetch<Asset>(`/assets/${id}`, { method: 'GET' });
   },
 
   async createAsset(data: {
@@ -305,14 +364,14 @@ export const apiClient = {
     serialNumber?: string;
     imageUrl?: string;
   }) {
-    return apiFetch<any>('/assets', {
+    return apiFetch<Asset>('/assets', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
 
-  async updateAsset(id: string, data: any) {
-    return apiFetch<any>(`/assets/${id}`, {
+  async updateAsset(id: string, data: Partial<Asset>) {
+    return apiFetch<Asset>(`/assets/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });

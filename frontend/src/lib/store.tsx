@@ -121,53 +121,53 @@ function findDepartmentIdentifier(nameOrId?: string): string {
 }
 
 // Helper to adapt backend issue object to frontend Issue type
-function mapBackendIssueToFrontend(item: any): Issue {
-  const categoryId = findCategoryIdentifier(item.category);
-  const departmentId = findDepartmentIdentifier(item.department);
+function mapBackendIssueToFrontend(item: Record<string, unknown>): Issue {
+  const categoryId = findCategoryIdentifier(item.category as string);
+  const departmentId = findDepartmentIdentifier(item.department as string);
 
   return {
-    id: item.id,
-    title: item.title,
-    description: item.description,
+    id: item.id as string,
+    title: item.title as string,
+    description: item.description as string,
     categoryId,
     departmentId,
-    locationId: item.location || 'loc-main',
-    locationDetails: item.location || '',
-    assetId: item.assetId || undefined,
-    reporterId: item.reporterId || 'unknown',
-    reporterName: item.reporter?.name || item.reporterName || 'Campus Member',
-    reporterEmail: item.reporter?.email || item.reporterEmail || '',
-    reporterRole: item.reporter?.role || item.reporterRole || 'STUDENT',
+    locationId: (item.location as string) || 'loc-main',
+    locationDetails: (item.location as string) || '',
+    assetId: (item.assetId as string) || undefined,
+    reporterId: (item.reporterId as string) || 'unknown',
+    reporterName: (item.reporter as { name?: string })?.name || (item.reporterName as string) || 'Campus Member',
+    reporterEmail: (item.reporter as { email?: string })?.email || (item.reporterEmail as string) || '',
+    reporterRole: (item.reporter as { role?: string })?.role || (item.reporterRole as string) || 'STUDENT',
     status: (item.status as IssueStatus) || 'REPORTED',
     moderationStatus: (item.moderationStatus as ModerationStatus) || 'NORMAL',
     priority: (item.priority as IssuePriority) || 'MEDIUM',
-    possibleCause: item.suspectedCause || item.possibleCause,
-    suggestedSolution: item.proposedSolution || item.suggestedSolution,
-    occurredAt: item.occurredAt || new Date(item.createdAt).toLocaleString(),
+    possibleCause: (item.suspectedCause as string) || (item.possibleCause as string),
+    suggestedSolution: (item.proposedSolution as string) || (item.suggestedSolution as string),
+    occurredAt: (item.occurredAt as string) || new Date(item.createdAt as string).toLocaleString(),
     attachments: Array.isArray(item.attachments) ? item.attachments.map((a: string) => formatImageUrl(a)) : [],
-    affectedUserIds: item.participants?.map((p: any) => p.userId) || (item.reporterId ? [item.reporterId] : []),
-    followerUserIds: item.followers?.map((f: any) => f.userId) || (item.reporterId ? [item.reporterId] : []),
+    affectedUserIds: (item.participants as Array<{ userId: string }>)?.map((p) => p.userId) || ((item.reporterId as string) ? [item.reporterId as string] : []),
+    followerUserIds: (item.followers as Array<{ userId: string }>)?.map((f) => f.userId) || ((item.reporterId as string) ? [item.reporterId as string] : []),
     aiAnalysis: item.analysis ? {
-      category: item.analysis.category,
-      suggestedDepartment: item.analysis.suggestedDepartment || 'Facilities',
-      severity: item.analysis.severity,
-      priority: item.analysis.aiPriority,
-      confidence: typeof item.analysis.confidence === 'number' ? item.analysis.confidence : 0.94,
-      spamScore: typeof item.analysis.spamScore === 'number' ? item.analysis.spamScore : 0.01,
-      moderationFlags: item.analysis.moderationFlags || [],
-      duplicateCandidates: item.analysis.duplicateCandidates || [],
-      reasoning: item.analysis.reasoning || 'Automated AI categorization complete.',
-      modelUsed: item.analysis.modelUsed || 'Gemini 2.5 Flash',
+      category: (item.analysis as { category: string }).category,
+      suggestedDepartment: (item.analysis as { suggestedDepartment?: string }).suggestedDepartment || 'Facilities',
+      severity: (item.analysis as { severity: string }).severity,
+      priority: (item.analysis as { aiPriority: string }).aiPriority,
+      confidence: typeof (item.analysis as { confidence?: number }).confidence === 'number' ? (item.analysis as { confidence: number }).confidence : 0.94,
+      spamScore: typeof (item.analysis as { spamScore?: number }).spamScore === 'number' ? (item.analysis as { spamScore: number }).spamScore : 0.01,
+      moderationFlags: (item.analysis as { moderationFlags?: string[] }).moderationFlags || [],
+      duplicateCandidates: (item.analysis as { duplicateCandidates?: string[] }).duplicateCandidates || [],
+      reasoning: (item.analysis as { reasoning?: string }).reasoning || 'Automated AI categorization complete.',
+      modelUsed: (item.analysis as { modelUsed?: string }).modelUsed || 'Gemini 2.5 Flash',
     } : undefined,
-    resolutionProof: item.resolutions?.[0] ? {
-      imageUrl: formatImageUrl(item.resolutions[0].evidenceImages?.[0]?.storageKey || item.resolutionProof?.imageUrl),
-      resolvedById: item.resolutions[0].resolvedById,
-      resolvedByName: item.resolutions[0].resolvedBy?.name || 'Facilities Official',
-      notes: item.resolutions[0].description,
-      resolvedAt: item.resolutions[0].createdAt,
-    } : (item.resolutionProof ? { ...item.resolutionProof, imageUrl: formatImageUrl(item.resolutionProof.imageUrl) } : undefined),
-    createdAt: item.createdAt,
-    updatedAt: item.updatedAt,
+    resolutionProof: (item.resolutions as Array<Record<string, unknown>>)?.[0] ? {
+      imageUrl: formatImageUrl(((item.resolutions as Array<Record<string, unknown>>)[0].evidenceImages as Array<Record<string, unknown>>)?.[0]?.storageKey as string || (item.resolutionProof as Record<string, unknown>)?.imageUrl as string),
+      resolvedById: (item.resolutions as Array<Record<string, unknown>>)[0].resolvedById as string,
+      resolvedByName: ((item.resolutions as Array<Record<string, unknown>>)[0].resolvedBy as Record<string, unknown>)?.name as string || 'Facilities Official',
+      notes: (item.resolutions as Array<Record<string, unknown>>)[0].description as string,
+      resolvedAt: (item.resolutions as Array<Record<string, unknown>>)[0].createdAt as string,
+    } : (item.resolutionProof ? { ...(item.resolutionProof as Record<string, unknown>), imageUrl: formatImageUrl((item.resolutionProof as Record<string, unknown>).imageUrl as string) } : undefined),
+    createdAt: item.createdAt as string,
+    updatedAt: item.updatedAt as string,
   };
 }
 
@@ -200,7 +200,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await apiClient.listAssets({ take: 100 });
       if (res.data?.assets) {
-        setAssets(res.data.assets.map((a: any) => ({
+        setAssets(res.data.assets.map((a) => ({
           id: a.id,
           name: a.name,
           assetTag: a.assetTag,
@@ -232,7 +232,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (res.data.comments && Array.isArray(res.data.comments)) {
           setComments((prev) => ({
             ...prev,
-            [issueId]: res.data.comments.map((c: any) => ({
+            [issueId]: res.data.comments.map((c: { id: string; authorId: string; author?: { name?: string; role?: string }; content: string; createdAt: string }) => ({
               id: c.id,
               issueId,
               userId: c.authorId,
@@ -251,7 +251,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (res.data.statusHistory && Array.isArray(res.data.statusHistory)) {
           setStatusHistory((prev) => ({
             ...prev,
-            [issueId]: res.data.statusHistory.map((h: any) => ({
+            [issueId]: res.data.statusHistory.map((h: { id: string; fromStatus: string; toStatus: string; changedBy?: string; createdAt: string; reason?: string }) => ({
               id: h.id,
               issueId,
               fromStatus: h.fromStatus,
@@ -259,7 +259,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               changedById: 'system',
               changedByName: 'Audit Log',
               changedAt: h.createdAt,
-              reason: h.reason || 'Status updated',
+              reason: (h.reason as string) || 'Status updated',
             })),
           }));
         }
@@ -319,19 +319,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try {
           const notifRes = await apiClient.getNotifications();
           if (notifRes.data?.notifications && notifRes.data.notifications.length > 0) {
-            setNotifications(notifRes.data.notifications.map((n: any) => ({
+            setNotifications(notifRes.data.notifications.map((n: { id: string; userId: string; title: string; body?: string; message?: string; type?: string; read?: boolean; issueId?: string; createdAt: string }) => ({
               id: n.id,
               userId: n.userId,
               title: n.title,
               body: n.body || n.message || '',
-              type: (n.type as any) || 'STATUS_CHANGED',
+              type: (n.type as 'STATUS_CHANGED' | 'NEW_COMMENT' | 'RESOLUTION_SUBMITTED' | 'ISSUE_VERIFIED') || 'STATUS_CHANGED',
               read: Boolean(n.read),
               issueId: n.issueId,
               createdAt: n.createdAt,
             })));
           }
-        } catch {}
-      } catch (e) {
+        } catch (e: unknown) {
+          console.warn('Failed to fetch notifications:', e);
+        }
+      } catch (e: unknown) {
         console.warn('Initial session loading fallback:', e);
       } finally {
         setIsInitialized(true);
@@ -381,7 +383,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
       localStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(assets));
       localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(reports));
-    } catch (e) {
+    } catch (e: unknown) {
       console.error('Error persisting to localStorage', e);
     }
   }, [currentUser, issues, comments, statusHistory, notifications, assets, reports, isInitialized]);
@@ -412,9 +414,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // ❌ Auth error (wrong password, user not found, etc.) — throw so caller can display it
         throw new Error(res.error || 'Invalid email or password.');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Re-throw auth errors; only swallow genuine network exceptions with a mock fallback
-      if (err.message && !err.message.toLowerCase().includes('failed to fetch') && !err.message.toLowerCase().includes('networkerror')) {
+      if (err instanceof Error && err.message && !err.message.toLowerCase().includes('failed to fetch') && !err.message.toLowerCase().includes('networkerror')) {
         throw err;
       }
       // Network exception (backend down) — fall back to mock for dev convenience
@@ -447,11 +449,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       await apiClient.logout();
-    } catch (e) {}
+    } catch (e: unknown) {
+      console.warn('Logout error:', e);
+    }
     setCurrentUser(null);
     try {
       localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
-    } catch (e) {}
+    } catch (e: unknown) {
+      console.warn('localStorage error:', e);
+    }
   };
 
   const createIssue = async (input: CreateIssueInput): Promise<Issue> => {
@@ -543,7 +549,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } else if (backendRes.error) {
         console.error('Backend issue creation error:', backendRes.error);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.warn('Backend issue creation sync error:', e);
     }
 
@@ -579,7 +585,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } else {
         await apiClient.markAffected(issueId);
       }
-    } catch (e) {}
+    } catch (e: unknown) {
+      console.warn('Backend affected toggle error:', e);
+    }
   };
 
   const toggleFollow = async (issueId: string) => {
@@ -607,7 +615,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } else {
         await apiClient.followIssue(issueId);
       }
-    } catch (e) {}
+    } catch (e: unknown) {
+      console.warn('Backend follow toggle error:', e);
+    }
   };
 
   const updateStatus = async (
@@ -683,7 +693,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
       return true;
-    } catch (e) {
+    } catch (e: unknown) {
       console.error('Server error transitioning status:', e);
       setIssues((prev) =>
         prev.map((iss) => (iss.id === issueId ? { ...iss, status: previousStatus } : iss))
@@ -770,7 +780,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         [issueId]: (prev[issueId] || []).filter((h) => h.id !== historyItem.id),
       }));
       return false;
-    } catch (e) {
+    } catch (e: unknown) {
       console.error('Submit resolution error:', e);
       setIssues((prev) =>
         prev.map((iss) => (iss.id === issueId ? { ...iss, status: previousStatus } : iss))
@@ -929,7 +939,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     try {
       await apiClient.reportContent(issueId, reason, details);
-    } catch (e) {}
+    } catch (e: unknown) {
+      console.warn('Report content failed:', e);
+    }
   };
 
   const moderateIssue = async (issueId: string, moderationStatus: ModerationStatus, reason?: string) => {
@@ -939,7 +951,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     try {
       await apiClient.moderateIssue(issueId, moderationStatus, reason);
-    } catch (e) {}
+    } catch (e: unknown) {
+      console.warn('Moderate issue failed:', e);
+    }
   };
 
   const markNotificationRead = async (id: string) => {
@@ -977,7 +991,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (res.data) {
         setAssets((prev) => [res.data, ...prev.filter((a) => a.id !== asset.id && a.id !== res.data.id)]);
       }
-    } catch (e) {
+    } catch (e: unknown) {
       console.warn('Backend createAsset error:', e);
     }
   };
@@ -986,7 +1000,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setAssets((prev) => prev.filter((a) => a.id !== assetId));
     try {
       await apiClient.deleteAsset(assetId);
-    } catch (e) {
+    } catch (e: unknown) {
       console.warn('Backend deleteAsset error:', e);
     }
   };

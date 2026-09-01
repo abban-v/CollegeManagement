@@ -3,9 +3,9 @@ import type { NextRequest } from "next/server";
 import { checkRateLimit, getRateLimitIdentifier, getRateLimitHeaders } from "@/lib/middleware/rateLimit";
 
 /**
- * Middleware for CORS and rate limiting
+ * Proxy for CORS and rate limiting
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const origin = request.headers.get("origin") || "";
   const configuredFrontend = process.env.FRONTEND_URL?.replace(/\/$/, "");
 

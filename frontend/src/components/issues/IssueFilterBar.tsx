@@ -2,8 +2,7 @@
 
 import React from 'react';
 import { useApp } from '@/lib/store';
-import { IssueStatus, IssuePriority } from '@/lib/types';
-import { Search, Filter, ArrowUpDown, Layers, Flame } from 'lucide-react';
+import { Search } from 'lucide-react';
 
 interface FilterState {
   search: string;

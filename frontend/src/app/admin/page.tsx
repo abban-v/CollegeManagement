@@ -8,17 +8,9 @@ import { StatusBadge, PriorityBadge, ModerationBadge } from '@/components/ui/Bad
 import { ResolutionProofModal } from '@/components/issues/ResolutionProofModal';
 import {
   BarChart3,
-  ShieldCheck,
   AlertTriangle,
-  Clock,
   CheckCircle2,
   Building2,
-  Users,
-  ArrowUpRight,
-  Filter,
-  UserCheck,
-  TrendingUp,
-  Sparkles,
   Layers,
   Flag,
   ShieldAlert,
@@ -32,15 +24,12 @@ export default function AdminDashboardPage() {
   const {
     issues,
     departments,
-    reports,
-    updateStatus,
     moderateIssue,
     currentUser,
     isLoadingAuth,
   } = useApp();
   
   const [activeTab, setActiveTab] = useState<'workorders' | 'moderation' | 'ai_insights'>('workorders');
-  const [selectedIssueForProof, setSelectedIssueForProof] = useState<{ id: string; title: string } | null>(null);
 
   useEffect(() => {
     if (!isLoadingAuth && !currentUser) {
@@ -78,7 +67,6 @@ export default function AdminDashboardPage() {
   }
 
   const activeIssues = issues.filter((i) => i.moderationStatus !== 'REMOVED');
-  const openIssues = activeIssues.filter((i) => i.status !== 'VERIFIED' && i.status !== 'CLOSED');
   const criticalIssues = activeIssues.filter((i) => (i.priority === 'CRITICAL' || i.priority === 'HIGH') && i.status !== 'VERIFIED' && i.status !== 'CLOSED');
   const verifiedIssues = activeIssues.filter((i) => i.status === 'VERIFIED');
   const flaggedIssues = issues.filter((i) => i.moderationStatus === 'FLAGGED' || i.moderationStatus === 'UNDER_REVIEW');

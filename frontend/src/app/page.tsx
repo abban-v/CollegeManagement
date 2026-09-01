@@ -19,7 +19,6 @@ import {
   Flame,
   Loader2
 } from 'lucide-react';
-import Link from 'next/link';
 
 export default function HomePage() {
   const router = useRouter();
@@ -79,16 +78,14 @@ export default function HomePage() {
       // Department filter
       if (filters.departmentId !== 'ALL') {
         const matchDept =
-          issue.departmentId?.toLowerCase() === filters.departmentId.toLowerCase() ||
-          (issue as any).department?.toLowerCase() === filters.departmentId.toLowerCase();
+          issue.departmentId?.toLowerCase() === filters.departmentId.toLowerCase();
         if (!matchDept) return false;
       }
 
       // Category filter
       if (filters.categoryId !== 'ALL') {
         const matchCat =
-          issue.categoryId?.toLowerCase() === filters.categoryId.toLowerCase() ||
-          (issue as any).category?.toLowerCase() === filters.categoryId.toLowerCase();
+          issue.categoryId?.toLowerCase() === filters.categoryId.toLowerCase();
         if (!matchCat) return false;
       }
 
@@ -104,7 +101,7 @@ export default function HomePage() {
       // newest
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [issues, filters, tabView, currentUser]);
+  }, [activeIssues, filters, tabView, currentUser]);
 
   if (isLoadingAuth || !currentUser) {
     return (
