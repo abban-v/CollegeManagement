@@ -188,7 +188,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const res = await apiClient.listIssues({ take: 100 });
       if (res.data?.issues) {
         const mapped = res.data.issues.map(mapBackendIssueToFrontend);
-        setIssues(mapped);
+        setIssues((prev) => {
+          const optimistic = prev.filter(i => i.id.startsWith('iss-'));
+          return [...mapped, ...optimistic];
+        });
       }
     } catch (e) {
       console.warn('Could not fetch issues from backend:', e);
@@ -424,6 +427,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     setCurrentUser(loggedInUser);
+    refreshIssues();
+    refreshAssets();
     return loggedInUser;
   };
 
@@ -441,6 +446,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(userData.name || userData.email)}`,
     };
     setCurrentUser(user);
+    refreshIssues();
+    refreshAssets();
     return user;
   };
 
@@ -539,6 +546,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (backendRes.data) {
         const serverIssue = mapBackendIssueToFrontend(backendRes.data);
         setIssues((prev) => [serverIssue, ...prev.filter((i) => i.id !== newIssueId)]);
+        setStatusHistory((prev) => {
+          const updated = { ...prev };
+          if (updated[newIssueId]) {
+            updated[serverIssue.id] = updated[newIssueId].map(h => ({ ...h, issueId: serverIssue.id }));
+            delete updated[newIssueId];
+          }
+          return updated;
+        });
         return serverIssue;
       } else if (backendRes.error) {
         console.error('Backend issue creation error:', backendRes.error);
@@ -572,14 +587,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       })
     );
 
-    // Call Backend API (DELETE if previously affected, POST if previously not affected)
+    // Call Backend API
     try {
       if (wasAffected) {
-        await apiClient.markUnaffected(issueId);
+        const res = await apiClient.markUnaffected(issueId);
+        if (res.error) throw new Error(res.error);
       } else {
-        await apiClient.markAffected(issueId);
+        const res = await apiClient.markAffected(issueId);
+        if (res.error) throw new Error(res.error);
       }
-    } catch (e) {}
+    } catch (e) {
+      // Rollback on error
+      setIssues((prev) =>
+        prev.map((iss) => {
+          if (iss.id !== issueId) return iss;
+          return {
+            ...iss,
+            affectedUserIds: wasAffected
+              ? [...iss.affectedUserIds, currentUser.id]
+              : iss.affectedUserIds.filter((id) => id !== currentUser.id),
+          };
+        })
+      );
+    }
   };
 
   const toggleFollow = async (issueId: string) => {
@@ -603,11 +633,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     try {
       if (wasFollowing) {
-        await apiClient.unfollowIssue(issueId);
+        const res = await apiClient.unfollowIssue(issueId);
+        if (res.error) throw new Error(res.error);
       } else {
-        await apiClient.followIssue(issueId);
+        const res = await apiClient.followIssue(issueId);
+        if (res.error) throw new Error(res.error);
       }
-    } catch (e) {}
+    } catch (e) {
+      // Rollback on error
+      setIssues((prev) =>
+        prev.map((iss) => {
+          if (iss.id !== issueId) return iss;
+          return {
+            ...iss,
+            followerUserIds: wasFollowing
+              ? [...iss.followerUserIds, currentUser.id]
+              : iss.followerUserIds.filter((id) => id !== currentUser.id),
+          };
+        })
+      );
+    }
   };
 
   const updateStatus = async (
@@ -904,9 +949,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
 
     try {
-      await apiClient.addComment(issueId, body);
+      const res = await apiClient.addComment(issueId, body);
+      if (res.error) throw new Error(res.error);
     } catch (e) {
       console.warn('Failed to post comment to server:', e);
+      setComments((prev) => ({
+        ...prev,
+        [issueId]: (prev[issueId] || []).filter((c) => c.id !== newComment.id),
+      }));
     }
   };
 
@@ -922,24 +972,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createdAt: new Date().toISOString(),
     };
 
+    const targetIssue = issues.find(i => i.id === issueId);
+    const previousModerationStatus = targetIssue ? targetIssue.moderationStatus : 'NORMAL';
+    
     setReports((prev) => [report, ...prev]);
     setIssues((prev) =>
       prev.map((i) => (i.id === issueId ? { ...i, moderationStatus: 'FLAGGED' } : i))
     );
 
     try {
-      await apiClient.reportContent(issueId, reason, details);
-    } catch (e) {}
+      const res = await apiClient.reportContent(issueId, reason, details);
+      if (res.error) throw new Error(res.error);
+    } catch (e) {
+      setReports((prev) => prev.filter(r => r.id !== report.id));
+      setIssues((prev) =>
+        prev.map((i) => (i.id === issueId ? { ...i, moderationStatus: previousModerationStatus } : i))
+      );
+    }
   };
 
   const moderateIssue = async (issueId: string, moderationStatus: ModerationStatus, reason?: string) => {
+    const targetIssue = issues.find(i => i.id === issueId);
+    const previousModerationStatus = targetIssue ? targetIssue.moderationStatus : 'NORMAL';
+
     setIssues((prev) =>
       prev.map((i) => (i.id === issueId ? { ...i, moderationStatus } : i))
     );
 
     try {
-      await apiClient.moderateIssue(issueId, moderationStatus, reason);
-    } catch (e) {}
+      const res = await apiClient.moderateIssue(issueId, moderationStatus, reason);
+      if (res.error) throw new Error(res.error);
+    } catch (e) {
+      setIssues((prev) =>
+        prev.map((i) => (i.id === issueId ? { ...i, moderationStatus: previousModerationStatus } : i))
+      );
+    }
   };
 
   const markNotificationRead = async (id: string) => {
@@ -979,6 +1046,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (e) {
       console.warn('Backend createAsset error:', e);
+      setAssets((prev) => prev.filter((a) => a.id !== asset.id));
     }
   };
 

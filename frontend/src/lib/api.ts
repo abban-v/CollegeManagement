@@ -66,6 +66,13 @@ async function apiFetch<T>(
       ...(options.headers as Record<string, string>),
     };
 
+    if (typeof window !== 'undefined') {
+      const storedToken = localStorage.getItem('slashforge_auth_token');
+      if (storedToken && !headers['Authorization'] && !headers['authorization']) {
+        headers['Authorization'] = `Bearer ${storedToken}`;
+      }
+    }
+
     if (!(options.body instanceof FormData) && !headers['Content-Type']) {
       headers['Content-Type'] = 'application/json';
     }
@@ -92,17 +99,27 @@ export const apiClient = {
   // ─── Authentication ────────────────────────────────────────────────────────
 
   async googleAuth(params: { credential?: string; accessToken?: string; email?: string; name?: string; avatarUrl?: string }) {
-    return apiFetch<AuthUser & { session: { sessionId: string; expiresAt: string } }>(
+    const res = await apiFetch<AuthUser & { session: { sessionId: string; token?: string; expiresAt: string } }>(
       '/auth/google',
       { method: 'POST', body: JSON.stringify(params) }
     );
+    if (res.data?.session && typeof window !== 'undefined') {
+      const token = res.data.session.token || res.data.session.sessionId;
+      localStorage.setItem('slashforge_auth_token', token);
+    }
+    return res;
   },
 
   async login(email: string, password: string) {
-    return apiFetch<AuthUser & { session: { sessionId: string; expiresAt: string } }>(
+    const res = await apiFetch<AuthUser & { session: { sessionId: string; token?: string; expiresAt: string } }>(
       '/auth/login',
       { method: 'POST', body: JSON.stringify({ email, password }) }
     );
+    if (res.data?.session && typeof window !== 'undefined') {
+      const token = res.data.session.token || res.data.session.sessionId;
+      localStorage.setItem('slashforge_auth_token', token);
+    }
+    return res;
   },
 
   /**
@@ -110,10 +127,15 @@ export const apiClient = {
    * Backend returns the new user + session directly (not nested under a `user` key).
    */
   async register(email: string, password: string, name?: string) {
-    return apiFetch<AuthUser & { session: { sessionId: string; expiresAt: string } }>(
+    const res = await apiFetch<AuthUser & { session: { sessionId: string; token?: string; expiresAt: string } }>(
       '/auth/register',
       { method: 'POST', body: JSON.stringify({ email, password, name }) }
     );
+    if (res.data?.session && typeof window !== 'undefined') {
+      const token = res.data.session.token || res.data.session.sessionId;
+      localStorage.setItem('slashforge_auth_token', token);
+    }
+    return res;
   },
 
   async getSession() {
@@ -124,6 +146,9 @@ export const apiClient = {
   },
 
   async logout() {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('slashforge_auth_token');
+    }
     return apiFetch<{ message: string }>('/auth/logout', { method: 'POST' });
   },
 
