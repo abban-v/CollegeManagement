@@ -32,8 +32,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenReportModal }) => {
   const navLinks = [
     { href: '/', label: 'Live Issues', icon: Layers },
     { href: '/assets', label: 'Campus Assets', icon: Box },
-    ...(currentUser?.role === 'ADMIN' || currentUser?.role === 'OFFICIAL' || currentUser?.role === 'MODERATOR'
-      ? [{ href: '/admin', label: 'Triage & Moderation', icon: BarChart3 }]
+    ...(currentUser?.role === 'ADMIN'
+      ? [{ href: '/admin', label: 'Admin Dashboard', icon: BarChart3 }]
+      : currentUser?.role === 'OFFICIAL' || currentUser?.role === 'MODERATOR'
+      ? [{ href: '/admin', label: 'Staff & Moderation', icon: BarChart3 }]
       : []),
   ];
 
@@ -173,7 +175,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenReportModal }) => {
                             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-300 hover:bg-slate-800/60 transition-colors"
                           >
                             <BarChart3 className="w-4 h-4 text-amber-400" />
-                            <span>Triage & Moderation</span>
+                            <span>{currentUser.role === 'ADMIN' ? 'Admin Dashboard' : 'Staff & Moderation'}</span>
                           </Link>
                         )}
                       </div>

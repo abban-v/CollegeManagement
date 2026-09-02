@@ -22,6 +22,8 @@ export type IssueAnalysisInput = {
   category?: string;
   department?: string;
   location?: string;
+  suspectedCause?: string;
+  proposedSolution?: string;
 };
 
 export type IssueAnalysisResult = {
@@ -252,77 +254,135 @@ function clampScore(value: unknown, fallback: number) {
   return Math.min(1, Math.max(0, value));
 }
 
+async function analyzeIssueWithOpenRouter(
+  prompt: string,
+  fallback: IssueAnalysisResult,
+  duplicateCandidates: DuplicateCandidate[]
+): Promise<IssueAnalysisResult | null> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey || apiKey === "your_openrouter_api_key_here") return null;
+
+  const model = process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-exp:free";
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://slashforge.cet.ac.in",
+        "X-Title": "Slashforge Campus Issue Portal",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+
+    if (!response.ok) return null;
+    const json = await response.json();
+    const content = json.choices?.[0]?.message?.content;
+    if (!content) return null;
+
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    const aiPriority = normalizePriority(parsed.priority);
+    const isDuplicate = typeof parsed.isDuplicate === "boolean" ? parsed.isDuplicate : fallback.isDuplicate;
+
+    return {
+      category: typeof parsed.category === "string" ? parsed.category : fallback.category,
+      suggestedDepartment:
+        typeof parsed.suggestedDepartment === "string" ? parsed.suggestedDepartment : fallback.suggestedDepartment,
+      aiPriority,
+      severity: normalizePriority(parsed.severity),
+      spamScore: clampScore(parsed.spamScore, fallback.spamScore),
+      toxicityScore: clampScore(parsed.toxicityScore, fallback.toxicityScore),
+      moderationFlags: Array.isArray(parsed.moderationFlags)
+        ? parsed.moderationFlags.filter((f: unknown): f is string => typeof f === "string")
+        : fallback.moderationFlags,
+      confidence: clampScore(parsed.confidence, fallback.confidence),
+      duplicateCandidates,
+      isDuplicate,
+      duplicateOfIssueId: typeof parsed.duplicateOfIssueId === "string" ? parsed.duplicateOfIssueId : fallback.duplicateOfIssueId,
+      duplicateIssueTitle: typeof parsed.duplicateIssueTitle === "string" ? parsed.duplicateIssueTitle : fallback.duplicateIssueTitle,
+      reasoning: typeof parsed.reasoning === "string" ? parsed.reasoning : fallback.reasoning,
+      modelUsed: `openrouter/${model}`,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function analyzeIssueWithGemini(
   input: IssueAnalysisInput,
   existingIssues: ExistingIssueContext[],
   duplicateCandidates: DuplicateCandidate[],
   fallback: IssueAnalysisResult
 ): Promise<IssueAnalysisResult> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === "your_gemini_api_key_here") {
-    return fallback;
-  }
+  const configuredModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const candidateModels = [configuredModel, "gemini-2.5-flash", "gemini-1.5-flash", "gemini-3.6-flash"].filter(
+    (v, i, a) => a.indexOf(v) === i
+  );
 
-  const modelName = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-  
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: modelName });
+  const existingIssuesListText = existingIssues && existingIssues.length > 0
+    ? existingIssues
+        .slice(0, 20)
+        .map(
+          (iss, i) =>
+            `${i + 1}. [ID: ${iss.id}] Status: ${iss.status || "REPORTED"} | Category: ${iss.category || "General"} | Location: ${
+              iss.location || "N/A"
+            } | Title: "${iss.title}" | Description: "${iss.description.slice(0, 140)}"`
+        )
+        .join("\n")
+    : "None currently active.";
 
-    const existingIssuesListText = existingIssues && existingIssues.length > 0
-      ? existingIssues
-          .slice(0, 15)
-          .map(
-            (iss, i) =>
-              `${i + 1}. [ID: ${iss.id}] Status: ${iss.status || "REPORTED"} | Location: ${
-                iss.location || "N/A"
-              } | Title: "${iss.title}" | Description: "${iss.description.slice(0, 120)}"`
-          )
-          .join("\n")
-      : "None currently active.";
-
-    const prompt = `You are the AI Quality & Triage Sentinel for a College Campus Infrastructure and Asset Issue Reporting Platform.
-Your task is to analyze submitted issues for validity, category, priority, spam likelihood, authenticity, and duplicate detection against already reported / active platform issues.
+  const prompt = `You are the AI Quality & Triage Sentinel for a College Campus Infrastructure and Asset Issue Reporting Platform.
+Your task is to analyze submitted tickets for legitimacy, category, priority, spam likelihood, authenticity, and duplicate detection against already reported / active platform issues.
 
 Carefully evaluate the newly submitted issue:
-- Title: "${input.title}"
-- Description: "${input.description}"
+- Problem Title: "${input.title}"
+- Problem Description: "${input.description}"
+- Location / Classroom / Lab: "${input.location || "not specified"}"
 - User Category: "${input.category || "not specified"}"
 - User Department: "${input.department || "not specified"}"
-- Location: "${input.location || "not specified"}"
+- Suspected Cause: "${input.suspectedCause || "not specified"}"
+- Suggested Solution: "${input.proposedSolution || "not specified"}"
 
 CURRENTLY REPORTED & ACTIVE PLATFORM ISSUES:
 ${existingIssuesListText}
 
 CRITICAL EVALUATION RUBRIC:
-1. DUPLICATE DETECTION:
-   - Check if this newly submitted issue is reporting the EXACT SAME or SUBSTANTIALLY IDENTICAL problem, incident, room, or equipment that is already being resolved or reported in the CURRENTLY REPORTED & ACTIVE PLATFORM ISSUES list above (e.g. same projector in same room, same water leak in same washroom, same AC breakdown).
+1. DUPLICATE DETECTION & PRIOR RESOLUTION:
+   - Check if this newly submitted issue is reporting the EXACT SAME or SUBSTANTIALLY IDENTICAL problem, room, incident, or equipment that is already present in the CURRENTLY REPORTED & ACTIVE PLATFORM ISSUES list above (e.g. same projector failure in same classroom, same water leak in same restroom, same AC breakdown).
    - If it is a duplicate of an existing unresolved/open issue:
      - Set "isDuplicate": true
      - Set "duplicateOfIssueId": "<matching-issue-id>"
      - Set "duplicateIssueTitle": "<matching-issue-title>"
      - Include "POSSIBLE_DUPLICATE" in "moderationFlags".
+     - Set "spamScore" to a higher rating between 0.70 and 0.95 depending on how closely it matches.
    - If it is a unique/new issue:
      - Set "isDuplicate": false
      - Set "duplicateOfIssueId": null
      - Set "duplicateIssueTitle": null
 
-2. spamScore (float between 0.0 and 1.0):
-   - 0.81 to 1.00 (High / Severe Spam or Fabrication): Blatant spam, advertising, commercial promotions, crypto, casinos, external links, gibberish/keyboard mashing (e.g., 'asdfgh', 'test 12345'), fabricated stories, malicious text, trolling, or completely nonsensical input.
-   - 0.51 to 0.80 (Potential Spam / Ambiguous / Joke): Unclear/vague claims, rambling disconnected text, suspicious wording, joke submissions (e.g. 'I CANT STOP SMILING', 'someone talk to me'), personal banter, or submissions completely lacking physical campus infrastructure context.
+2. CAMPUS INFRASTRUCTURE AUTHENTICITY & CONFIDENCE (0.0 to 1.0):
+   - Check if the issue seems genuine, coherent, and actionable from the perspective of a college campus infrastructure and facility management platform (classrooms, labs, restrooms, electrical fixtures, AC, projectors, WiFi, civil structures, water pipes, furniture, safety hazards).
+   - 0.80 to 1.00 (High Confidence): Genuine, specific, coherent, well-described campus maintenance problem with clear location and actionable physical/technical symptoms.
+   - 0.60 to 0.79 (Moderate Confidence): Plausible campus maintenance issue but with brief or basic detail.
+   - 0.30 to 0.59 (Low Confidence): Ambiguous or poorly worded, personal banter, or uncertain if it represents a real actionable campus issue.
+   - 0.00 to 0.29 (Very Low Confidence): Incoherent, nonsensical, fabricated, joke/meme submissions (e.g. 'I CANT STOP SMILING', 'someone talk to me'), gibberish, or impossible to determine any legitimate maintenance issue.
+
+3. SPAM SCORE (0.0 to 1.0):
+   - 0.81 to 1.00 (High / Severe Spam or Fabrication): Blatant spam, advertising, commercial promotions, crypto, casinos, external links, gibberish/keyboard mashing (e.g., 'asdfgh', 'test 12345'), fabricated stories, malicious text, trolling, jokes, or completely nonsensical input.
+   - 0.51 to 0.80 (Potential Spam / Ambiguous / Joke): Unclear/vague claims, rambling disconnected text, suspicious wording, joke submissions, personal expressions, or submissions completely lacking physical campus infrastructure context.
    - 0.00 to 0.50 (Legitimate): Genuine campus infrastructure, equipment, or facility problem.
 
-3. confidence (float between 0.0 and 1.0):
-   - 0.80 to 1.00 (High Confidence): Specific, coherent, well-described problem with clear physical location and actionable symptoms.
-   - 0.60 to 0.79 (Moderate Confidence): Plausible campus maintenance issue but with brief or basic detail.
-   - 0.30 to 0.59 (Low Confidence): Ambiguous or poorly worded, jokes/banter, or uncertain if it represents a real actionable issue.
-   - 0.00 to 0.29 (Very Low Confidence): Incoherent, nonsensical, fabricated, gibberish, or impossible to determine any legitimate maintenance issue.
-
-4. category: One of "Electrical & Power", "HVAC & Ventilation", "Plumbing & Water", "Lab Hardware & Computers", "Projectors & AV Systems", "Furniture & Desks", "General Infrastructure", "Network & IT", "Campus Safety", or "UNCATEGORIZED".
-5. priority: One of "LOW", "MEDIUM", "HIGH", "CRITICAL". (Do NOT assign HIGH/CRITICAL to joke or non-infrastructure submissions).
-6. severity: One of "LOW", "MEDIUM", "HIGH", "CRITICAL".
-7. toxicityScore: 0.0 to 1.0 likelihood of profanity, harassment, or abusive attacks.
-8. moderationFlags: Array of strings. Include "SPAM" if spamScore > 0.5. Include "TOXIC_LANGUAGE" if toxicityScore > 0.6. Include "POSSIBLE_FABRICATION" if spamScore > 0.8 and confidence < 0.3. Include "POSSIBLE_DUPLICATE" if isDuplicate is true. Include "NON_INFRASTRUCTURE_CONTENT" if the submission is a joke or personal expression.
+4. CATEGORY: One of "Electrical & Power", "HVAC & Ventilation", "Plumbing & Water", "Lab Hardware & Computers", "Projectors & AV Systems", "Furniture & Desks", "General Infrastructure", "Network & IT", "Campus Safety", or "UNCATEGORIZED".
+5. PRIORITY: One of "LOW", "MEDIUM", "HIGH", "CRITICAL". (Do NOT assign HIGH/CRITICAL to joke or non-infrastructure submissions).
+6. SEVERITY: One of "LOW", "MEDIUM", "HIGH", "CRITICAL".
+7. TOXICITY SCORE: 0.0 to 1.0 likelihood of profanity, harassment, or abusive attacks.
+8. MODERATION FLAGS: Array of strings. Include "SPAM" if spamScore > 0.5. Include "TOXIC_LANGUAGE" if toxicityScore > 0.6. Include "POSSIBLE_FABRICATION" if spamScore > 0.8 and confidence < 0.3. Include "POSSIBLE_DUPLICATE" if isDuplicate is true. Include "NON_INFRASTRUCTURE_CONTENT" if the submission is a joke or personal expression.
 
 Return ONLY a valid JSON object matching this exact format with NO surrounding markdown backticks or commentary:
 {
@@ -340,43 +400,63 @@ Return ONLY a valid JSON object matching this exact format with NO surrounding m
   "reasoning": "Clear explanation of the assessment and why these scores were assigned."
 }`;
 
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
+  // 1. Try OpenRouter if configured
+  const openRouterResult = await analyzeIssueWithOpenRouter(prompt, fallback, duplicateCandidates);
+  if (openRouterResult) {
+    return openRouterResult;
+  }
 
-    // Extract JSON from response
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error("Gemini response did not contain valid JSON");
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]);
-    const aiPriority = normalizePriority(parsed.priority);
-    const isDuplicate = typeof parsed.isDuplicate === "boolean" ? parsed.isDuplicate : fallback.isDuplicate;
-
-    return {
-      category: typeof parsed.category === "string" ? parsed.category : fallback.category,
-      suggestedDepartment:
-        typeof parsed.suggestedDepartment === "string" ? parsed.suggestedDepartment : fallback.suggestedDepartment,
-      aiPriority,
-      severity: normalizePriority(parsed.severity),
-      spamScore: clampScore(parsed.spamScore, fallback.spamScore),
-      toxicityScore: clampScore(parsed.toxicityScore, fallback.toxicityScore),
-      moderationFlags: Array.isArray(parsed.moderationFlags)
-        ? parsed.moderationFlags.filter((flag: unknown): flag is string => typeof flag === "string")
-        : fallback.moderationFlags,
-      confidence: clampScore(parsed.confidence, fallback.confidence),
-      duplicateCandidates,
-      isDuplicate,
-      duplicateOfIssueId: typeof parsed.duplicateOfIssueId === "string" ? parsed.duplicateOfIssueId : fallback.duplicateOfIssueId,
-      duplicateIssueTitle: typeof parsed.duplicateIssueTitle === "string" ? parsed.duplicateIssueTitle : fallback.duplicateIssueTitle,
-      reasoning: typeof parsed.reasoning === "string" ? parsed.reasoning : fallback.reasoning,
-      modelUsed: modelName,
-    };
-  } catch (error) {
-    console.warn("Gemini analysis failed, falling back to local analyzer", error);
+  // 2. Try Google Generative AI
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === "your_gemini_api_key_here") {
     return fallback;
   }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+
+  for (const modelName of candidateModels) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
+
+      // Extract JSON from response
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        continue;
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      const aiPriority = normalizePriority(parsed.priority);
+      const isDuplicate = typeof parsed.isDuplicate === "boolean" ? parsed.isDuplicate : fallback.isDuplicate;
+
+      return {
+        category: typeof parsed.category === "string" ? parsed.category : fallback.category,
+        suggestedDepartment:
+          typeof parsed.suggestedDepartment === "string" ? parsed.suggestedDepartment : fallback.suggestedDepartment,
+        aiPriority,
+        severity: normalizePriority(parsed.severity),
+        spamScore: clampScore(parsed.spamScore, fallback.spamScore),
+        toxicityScore: clampScore(parsed.toxicityScore, fallback.toxicityScore),
+        moderationFlags: Array.isArray(parsed.moderationFlags)
+          ? parsed.moderationFlags.filter((flag: unknown): flag is string => typeof flag === "string")
+          : fallback.moderationFlags,
+        confidence: clampScore(parsed.confidence, fallback.confidence),
+        duplicateCandidates,
+        isDuplicate,
+        duplicateOfIssueId: typeof parsed.duplicateOfIssueId === "string" ? parsed.duplicateOfIssueId : fallback.duplicateOfIssueId,
+        duplicateIssueTitle: typeof parsed.duplicateIssueTitle === "string" ? parsed.duplicateIssueTitle : fallback.duplicateIssueTitle,
+        reasoning: typeof parsed.reasoning === "string" ? parsed.reasoning : fallback.reasoning,
+        modelUsed: modelName,
+      };
+    } catch {
+      // Try next candidate model
+      continue;
+    }
+  }
+
+  return fallback;
 }
 
 export async function analyzeIssue(

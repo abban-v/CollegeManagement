@@ -100,8 +100,8 @@ export class IssueService {
       );
     }
 
-    // Rule 1: If spam rating > 50% and confidence < 60%, keep for review and hide from main page
-    const isUnderReview = analysis.spamScore > 0.5 && analysis.confidence < 0.6;
+    // Rule 1: If spam rating > 50% or confidence < 60%, keep for review and hide from main page
+    const isUnderReview = (analysis.spamScore > 0.5 && analysis.confidence < 0.6) || analysis.spamScore > 0.5 || analysis.confidence < 0.6;
     const initialModerationStatus = isUnderReview
       ? ModerationStatus.UNDER_REVIEW
       : analysis.moderationFlags.length > 0
