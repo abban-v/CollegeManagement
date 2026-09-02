@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/lib/store';
-import { X, RefreshCcw, AlertTriangle, Upload } from 'lucide-react';
+import { apiClient } from '@/lib/api';
+import { X, RefreshCcw, AlertTriangle, Upload, Check, Loader2 } from 'lucide-react';
 
 interface ReopenModalProps {
   issueId: string;
@@ -20,6 +21,7 @@ export const ReopenModal: React.FC<ReopenModalProps> = ({
   const { reopenIssue } = useApp();
   const [reason, setReason] = useState('');
   const [evidenceImage, setEvidenceImage] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
 
   if (!isOpen) return null;
@@ -59,7 +61,7 @@ export const ReopenModal: React.FC<ReopenModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -103,19 +105,55 @@ export const ReopenModal: React.FC<ReopenModalProps> = ({
               <Upload className="w-3.5 h-3.5 text-purple-400" />
               Attach New Evidence Photo (Optional)
             </label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  const reader = new FileReader();
-                  reader.onload = () => setEvidenceImage(reader.result as string);
-                  reader.readAsDataURL(file);
-                }
-              }}
-              className="text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-rose-700 file:text-white hover:file:bg-rose-600 cursor-pointer"
-            />
+            {isUploading ? (
+              <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/30 text-center text-purple-400 flex items-center justify-center gap-2 text-xs">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Uploading evidence photo...</span>
+              </div>
+            ) : (
+              <input
+                type="file"
+                accept="image/*"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setIsUploading(true);
+                    setError('');
+                    try {
+                      const res = await apiClient.uploadFile(file);
+                      if (res.data?.publicUrl) {
+                        setEvidenceImage(res.data.publicUrl);
+                      } else {
+                        const reader = new FileReader();
+                        reader.onload = () => setEvidenceImage(reader.result as string);
+                        reader.readAsDataURL(file);
+                      }
+                    } catch {
+                      const reader = new FileReader();
+                      reader.onload = () => setEvidenceImage(reader.result as string);
+                      reader.readAsDataURL(file);
+                    } finally {
+                      setIsUploading(false);
+                    }
+                  }
+                }}
+                className="text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-rose-700 file:text-white hover:file:bg-rose-600 cursor-pointer"
+              />
+            )}
+            {evidenceImage && (
+              <div className="mt-2 flex items-center justify-between p-2 rounded-lg bg-rose-950/40 border border-rose-500/30 text-xs text-rose-300">
+                <span className="flex items-center gap-1.5">
+                  <Check className="w-3.5 h-3.5 text-emerald-400" /> Photo attached
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEvidenceImage('')}
+                  className="text-xs text-slate-400 hover:text-white underline cursor-pointer"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
           </div>
 
           {error && (

@@ -672,14 +672,15 @@ export default function AdminDashboardPage() {
                       <th className="py-3.5 pl-6 pr-4">User</th>
                       <th className="py-3.5 pr-4">Email Address</th>
                       <th className="py-3.5 pr-4">Current Role</th>
+                      <th className="py-3.5 pr-4">Account Status</th>
                       <th className="py-3.5 pr-4">Registered Date</th>
-                      <th className="py-3.5 pr-6 text-right">Role Assignment</th>
+                      <th className="py-3.5 pr-6 text-right">Role & Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-indigo-950/60">
                     {isLoadingUsers && usersList.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="py-12 text-center text-slate-400">
+                        <td colSpan={6} className="py-12 text-center text-slate-400">
                           <div className="flex flex-col items-center gap-2">
                             <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
                             <span>Loading user directory...</span>
@@ -747,51 +748,99 @@ export default function AdminDashboardPage() {
                                 </span>
                               </td>
 
+                              <td className="py-4 pr-4">
+                                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-400">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                  Active
+                                </span>
+                              </td>
+
                               <td className="py-4 pr-4 text-slate-400 text-[11px]">
                                 {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Active'}
                               </td>
 
                               <td className="py-4 pr-6 text-right">
-                                {currentUser?.role === 'ADMIN' ? (
-                                  <select
-                                    value={u.role}
-                                    onChange={async (e) => {
-                                      const nextRole = e.target.value as UserRole;
-                                      if (nextRole === u.role) return;
-                                      
-                                      try {
-                                        const res = await apiClient.updateUserRole(u.id, nextRole);
-                                        if (res.data?.user) {
-                                          setUsersList((prev) =>
-                                            prev.map((item) => (item.id === u.id ? { ...item, role: nextRole } : item))
-                                          );
-                                          setUserActionFeedback({
-                                            type: 'success',
-                                            message: `Updated ${u.name}'s role to ${nextRole}.`,
-                                          });
-                                        } else {
-                                          setUserActionFeedback({
-                                            type: 'error',
-                                            message: res.error || 'Failed to update user role.',
-                                          });
-                                        }
-                                      } catch {
-                                        setUserActionFeedback({
-                                          type: 'error',
-                                          message: 'Network error updating user role.',
-                                        });
-                                      }
-                                    }}
-                                    className="px-3 py-1.5 rounded-lg bg-[#070a1a] border border-indigo-950 text-xs font-semibold text-slate-200 focus:border-purple-500 outline-none cursor-pointer"
-                                  >
-                                    <option value="STUDENT">STUDENT (Reporter)</option>
-                                    <option value="MODERATOR">MODERATOR (Spam Control)</option>
-                                    <option value="OFFICIAL">OFFICIAL (Staff)</option>
-                                    <option value="ADMIN">ADMIN (Full Control)</option>
-                                  </select>
-                                ) : (
-                                  <span className="text-[11px] text-slate-500 font-medium">Read-only</span>
-                                )}
+                                <div className="flex items-center justify-end gap-2">
+                                  {currentUser?.role === 'ADMIN' ? (
+                                    <>
+                                      <select
+                                        value={u.role}
+                                        disabled={isSelf}
+                                        onChange={async (e) => {
+                                          const nextRole = e.target.value as UserRole;
+                                          if (nextRole === u.role) return;
+                                          
+                                          try {
+                                            const res = await apiClient.updateUserRole(u.id, nextRole);
+                                            if (res.data?.user) {
+                                              setUsersList((prev) =>
+                                                prev.map((item) => (item.id === u.id ? { ...item, role: nextRole } : item))
+                                              );
+                                              setUserActionFeedback({
+                                                type: 'success',
+                                                message: `Updated ${u.name}'s role to ${nextRole}.`,
+                                              });
+                                            } else {
+                                              setUserActionFeedback({
+                                                type: 'error',
+                                                message: res.error || 'Failed to update user role.',
+                                              });
+                                            }
+                                          } catch {
+                                            setUserActionFeedback({
+                                              type: 'error',
+                                              message: 'Network error updating user role.',
+                                            });
+                                          }
+                                        }}
+                                        className="px-2.5 py-1.5 rounded-lg bg-[#070a1a] border border-indigo-950 text-xs font-semibold text-slate-200 focus:border-purple-500 outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title={isSelf ? 'Cannot change your own role' : 'Change user role'}
+                                      >
+                                        <option value="STUDENT">STUDENT (Reporter)</option>
+                                        <option value="MODERATOR">MODERATOR (Spam Control)</option>
+                                        <option value="OFFICIAL">OFFICIAL (Staff)</option>
+                                        <option value="ADMIN">ADMIN (Full Control)</option>
+                                      </select>
+
+                                      {!isSelf ? (
+                                        <button
+                                          onClick={async () => {
+                                            if (confirm(`Are you sure you want to remove privileges / account for ${u.name} (${u.email})?`)) {
+                                              try {
+                                                const res = await apiClient.deleteAdminUser(u.id);
+                                                if (res.data?.id) {
+                                                  setUsersList((prev) => prev.filter((item) => item.id !== u.id));
+                                                  setUserActionFeedback({
+                                                    type: 'success',
+                                                    message: `Removed ${u.email} successfully.`,
+                                                  });
+                                                } else {
+                                                  setUserActionFeedback({
+                                                    type: 'error',
+                                                    message: res.error || 'Failed to remove user.',
+                                                  });
+                                                }
+                                              } catch {
+                                                setUserActionFeedback({
+                                                  type: 'error',
+                                                  message: 'Network error removing user.',
+                                                });
+                                              }
+                                            }
+                                          }}
+                                          className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 border border-transparent hover:border-rose-500/30 transition-colors cursor-pointer"
+                                          title={`Remove user ${u.email}`}
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      ) : (
+                                        <span className="w-7" />
+                                      )}
+                                    </>
+                                  ) : (
+                                    <span className="text-[11px] text-slate-500 font-medium">Read-only</span>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           );
@@ -799,6 +848,51 @@ export default function AdminDashboardPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+
+            {/* Role Permissions Guide */}
+            <div className="rounded-2xl glass-panel p-6 border border-indigo-500/20">
+              <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-purple-400" />
+                Campus Role Hierarchy & Privilege Matrix
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                <div className="p-3.5 rounded-xl bg-amber-950/20 border border-amber-500/30 space-y-1">
+                  <span className="font-bold text-amber-300 flex items-center gap-1">
+                    <Shield className="w-3.5 h-3.5 text-amber-400" /> ADMIN
+                  </span>
+                  <p className="text-slate-300 text-[11px] leading-relaxed">
+                    Full system authority. Manage user roles, allowlist admin emails, triage issues, resolve tickets, and delete records.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-1">
+                  <span className="font-bold text-indigo-300 flex items-center gap-1">
+                    <Building2 className="w-3.5 h-3.5 text-indigo-400" /> OFFICIAL
+                  </span>
+                  <p className="text-slate-300 text-[11px] leading-relaxed">
+                    Facilities & departmental staff. Accept tickets into &quot;In Progress&quot;, perform repair work, and submit completion proof photos.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-purple-950/20 border border-purple-500/30 space-y-1">
+                  <span className="font-bold text-purple-300 flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-purple-400" /> MODERATOR
+                  </span>
+                  <p className="text-slate-300 text-[11px] leading-relaxed">
+                    Content moderation team. Review AI spam holds, verify duplicate flags, and approve or remove reported content.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-500/30 space-y-1">
+                  <span className="font-bold text-emerald-300 flex items-center gap-1">
+                    <UserIcon className="w-3.5 h-3.5 text-emerald-400" /> STUDENT
+                  </span>
+                  <p className="text-slate-300 text-[11px] leading-relaxed">
+                    Standard campus member. Report infrastructure problems, upvote affected tickets, comment, and verify/dispute fixes.
+                  </p>
+                </div>
               </div>
             </div>
 

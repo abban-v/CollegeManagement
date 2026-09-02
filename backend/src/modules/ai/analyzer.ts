@@ -76,6 +76,27 @@ const GIBBERISH_PATTERNS = [
   /^(blah|blabla|lorem\s+ipsum|foo\s+bar|asdf)\b/i,
 ];
 
+// Patterns representing joke, trolling, emotional, or non-infrastructure submissions
+const JOKE_OR_NON_INFRASTRUCTURE_PATTERNS = [
+  /cant\s+stop\s+(smiling|laughing|crying|dancing)/i,
+  /can't\s+stop\s+(smiling|laughing|crying|dancing)/i,
+  /\b(smiling|laughing|joke|prank|funny|meme|bored|lol|lmao|rofl|xd|haha|hehe)\b/i,
+  /\b(marry me|i love you|dating|kiss|hug|party|dance|hungry|food)\b/i,
+  /^(urgent\s+)?issue\s+someone\s+please\s+address$/i,
+  /^(please\s+)?(help\s+me|look\s+at\s+this|test(ing)?\s*(123)?)$/i,
+];
+
+const INFRASTRUCTURE_SYMPTOM_TERMS = [
+  "broken", "leak", "leaking", "pipe", "tap", "sink", "water", "drain", "drainage", "flush",
+  "power", "electricity", "wire", "switch", "light", "bulb", "fuse", "socket", "circuit", "shock", "spark", "blackout",
+  "ac", "air conditioner", "fan", "cooling", "heater", "ventilation",
+  "computer", "pc", "laptop", "keyboard", "mouse", "monitor", "screen", "cpu", "ups", "oscilloscope",
+  "projector", "hdmi", "vga", "audio", "speaker", "mic", "microphone",
+  "desk", "bench", "chair", "table", "door", "window", "lock", "handle", "blackboard", "whiteboard",
+  "wifi", "internet", "network", "router", "ethernet", "portal", "login", "server",
+  "fire", "smoke", "alarm", "hazard", "ceiling", "roof", "floor", "tiles", "stairs", "wall", "paint", "crack"
+];
+
 function isGibberish(text: string): boolean {
   const trimmed = text.trim();
   if (trimmed.length < 5) return true;
@@ -136,12 +157,14 @@ export function analyzeIssueLocally(
   const titleGibberish = isGibberish(titleText);
   const descGibberish = isGibberish(descText);
   const isSevereGibberish = (titleGibberish && descGibberish) || fullText.length < 12;
+  const isJokeOrNonInfrastructure = JOKE_OR_NON_INFRASTRUCTURE_PATTERNS.some((p) => p.test(fullText));
+  const hasInfrastructureSymptoms = includesAny(fullText, INFRASTRUCTURE_SYMPTOM_TERMS);
 
   const matchedCategory = CATEGORY_RULES.find((rule) => includesAny(fullText, rule.terms));
   const matchedPriority = PRIORITY_RULES.find((rule) => includesAny(fullText, rule.terms));
 
   let spamScore = 0.02;
-  let confidence = matchedCategory ? 0.88 : 0.65;
+  let confidence = matchedCategory ? 0.88 : (hasInfrastructureSymptoms ? 0.65 : 0.35);
 
   if (hasSpamTerms && isSevereGibberish) {
     spamScore = 0.95;
@@ -152,6 +175,10 @@ export function analyzeIssueLocally(
   } else if (hasSpamTerms) {
     spamScore = 0.85;
     confidence = 0.25;
+  } else if (isJokeOrNonInfrastructure || (!matchedCategory && !hasInfrastructureSymptoms)) {
+    // Joke submission, trolling, or completely missing actionable infrastructure symptoms
+    spamScore = 0.65;
+    confidence = 0.35;
   } else if (titleGibberish || descGibberish || (!matchedCategory && fullText.length < 25)) {
     // Potential spam / ambiguous
     spamScore = 0.62;
@@ -169,11 +196,16 @@ export function analyzeIssueLocally(
     ...(spamScore >= 0.5 ? ["SPAM"] : []),
     ...(toxicityScore >= 0.6 ? ["TOXIC_LANGUAGE"] : []),
     ...(duplicateCandidates.length > 0 ? ["POSSIBLE_DUPLICATE"] : []),
+    ...(isJokeOrNonInfrastructure ? ["NON_INFRASTRUCTURE_CONTENT"] : []),
   ];
 
   const category = input.category?.trim() || matchedCategory?.category || "UNCATEGORIZED";
   const suggestedDepartment = input.department?.trim() || matchedCategory?.department || "Campus Facilities & Maintenance";
-  const aiPriority = matchedPriority?.priority ?? IssuePriority.MEDIUM;
+  
+  // Do not escalate to HIGH priority if the submission is a joke or lacks infrastructure symptoms
+  const aiPriority = (isJokeOrNonInfrastructure || (!matchedCategory && !hasInfrastructureSymptoms))
+    ? IssuePriority.MEDIUM
+    : (matchedPriority?.priority ?? IssuePriority.MEDIUM);
 
   let reasoning = `Local rules evaluated ${category} with ${aiPriority} priority.`;
   if (isDuplicate) {
@@ -181,7 +213,9 @@ export function analyzeIssueLocally(
   } else if (spamScore > 0.8 && confidence < 0.3) {
     reasoning = "Local analyzer flagged input as severe spam or gibberish.";
   } else if (spamScore > 0.5 && confidence < 0.6) {
-    reasoning = "Local analyzer identified potential spam or low-confidence issue requiring review.";
+    reasoning = isJokeOrNonInfrastructure
+      ? "Local analyzer identified non-infrastructure or joke content requiring administrative review."
+      : "Local analyzer identified potential spam or low-confidence issue requiring review.";
   }
 
   return {
@@ -275,20 +309,20 @@ CRITICAL EVALUATION RUBRIC:
 
 2. spamScore (float between 0.0 and 1.0):
    - 0.81 to 1.00 (High / Severe Spam or Fabrication): Blatant spam, advertising, commercial promotions, crypto, casinos, external links, gibberish/keyboard mashing (e.g., 'asdfgh', 'test 12345'), fabricated stories, malicious text, trolling, or completely nonsensical input.
-   - 0.51 to 0.80 (Potential Spam / Ambiguous): Unclear/vague claims, rambling disconnected text, suspicious wording, joke submissions, or lacking authentic campus context.
+   - 0.51 to 0.80 (Potential Spam / Ambiguous / Joke): Unclear/vague claims, rambling disconnected text, suspicious wording, joke submissions (e.g. 'I CANT STOP SMILING', 'someone talk to me'), personal banter, or submissions completely lacking physical campus infrastructure context.
    - 0.00 to 0.50 (Legitimate): Genuine campus infrastructure, equipment, or facility problem.
 
 3. confidence (float between 0.0 and 1.0):
    - 0.80 to 1.00 (High Confidence): Specific, coherent, well-described problem with clear physical location and actionable symptoms.
    - 0.60 to 0.79 (Moderate Confidence): Plausible campus maintenance issue but with brief or basic detail.
-   - 0.30 to 0.59 (Low Confidence): Ambiguous or poorly worded, uncertain if it represents a real actionable issue.
+   - 0.30 to 0.59 (Low Confidence): Ambiguous or poorly worded, jokes/banter, or uncertain if it represents a real actionable issue.
    - 0.00 to 0.29 (Very Low Confidence): Incoherent, nonsensical, fabricated, gibberish, or impossible to determine any legitimate maintenance issue.
 
 4. category: One of "Electrical & Power", "HVAC & Ventilation", "Plumbing & Water", "Lab Hardware & Computers", "Projectors & AV Systems", "Furniture & Desks", "General Infrastructure", "Network & IT", "Campus Safety", or "UNCATEGORIZED".
-5. priority: One of "LOW", "MEDIUM", "HIGH", "CRITICAL".
+5. priority: One of "LOW", "MEDIUM", "HIGH", "CRITICAL". (Do NOT assign HIGH/CRITICAL to joke or non-infrastructure submissions).
 6. severity: One of "LOW", "MEDIUM", "HIGH", "CRITICAL".
 7. toxicityScore: 0.0 to 1.0 likelihood of profanity, harassment, or abusive attacks.
-8. moderationFlags: Array of strings. Include "SPAM" if spamScore > 0.5. Include "TOXIC_LANGUAGE" if toxicityScore > 0.6. Include "POSSIBLE_FABRICATION" if spamScore > 0.8 and confidence < 0.3. Include "POSSIBLE_DUPLICATE" if isDuplicate is true.
+8. moderationFlags: Array of strings. Include "SPAM" if spamScore > 0.5. Include "TOXIC_LANGUAGE" if toxicityScore > 0.6. Include "POSSIBLE_FABRICATION" if spamScore > 0.8 and confidence < 0.3. Include "POSSIBLE_DUPLICATE" if isDuplicate is true. Include "NON_INFRASTRUCTURE_CONTENT" if the submission is a joke or personal expression.
 
 Return ONLY a valid JSON object matching this exact format with NO surrounding markdown backticks or commentary:
 {

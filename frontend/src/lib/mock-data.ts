@@ -17,6 +17,8 @@ export const CATEGORIES: IssueCategory[] = [
   { id: 'cat-projector', name: 'Projectors & AV Systems', description: 'Classroom projectors, audio systems, HDMI', iconName: 'Tv', active: true },
   { id: 'cat-furniture', name: 'Furniture & Desks', description: 'Classroom benches, chairs, podiums, doors', iconName: 'Armchair', active: true },
   { id: 'cat-general', name: 'General Infrastructure', description: 'Classroom fixtures, civil structures, pathways', iconName: 'Building', active: true },
+  { id: 'cat-network', name: 'Network & IT', description: 'WiFi, internet, routers, campus portal, ethernet', iconName: 'Wifi', active: true },
+  { id: 'cat-safety', name: 'Campus Safety', description: 'Fire hazards, alarms, broken glass, emergency equipment', iconName: 'ShieldAlert', active: true },
 ];
 
 export const LOCATIONS: CampusLocation[] = [

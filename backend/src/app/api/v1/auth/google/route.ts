@@ -135,12 +135,21 @@ export async function POST(request: NextRequest) {
           role: shouldBeAdmin ? UserRole.ADMIN : UserRole.STUDENT,
         },
       });
-    } else if (shouldBeAdmin && user.role !== UserRole.ADMIN) {
-      // Upgrade existing user to ADMIN if added to ADMIN_EMAILS
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: { role: UserRole.ADMIN },
-      });
+    } else {
+      const updateData: { role?: UserRole; name?: string } = {};
+      if (shouldBeAdmin && user.role !== UserRole.ADMIN) {
+        updateData.role = UserRole.ADMIN;
+      }
+      if (name && (!user.name || user.name === normalizedEmail.split("@")[0])) {
+        updateData.name = name;
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: updateData,
+        });
+      }
     }
 
     // Create session & set HTTP-only cookie

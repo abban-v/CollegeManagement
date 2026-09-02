@@ -544,4 +544,13 @@ export const apiClient = {
       }
     );
   },
+
+  async deleteAdminUser(userId: string) {
+    return apiFetch<{ message: string; id: string }>(
+      `/admin/users?userId=${encodeURIComponent(userId)}`,
+      {
+        method: 'DELETE',
+      }
+    );
+  },
 };

@@ -71,3 +71,10 @@ test("issues POST route catches DuplicateIssueError with 409 status", () => {
   assert.match(route, /DuplicateIssueError/);
   assert.match(route, /409/);
 });
+
+test("analyzer detects non-infrastructure / joke submissions and flags for review", () => {
+  const analyzer = read("src/modules/ai/analyzer.ts");
+  assert.match(analyzer, /JOKE_OR_NON_INFRASTRUCTURE_PATTERNS/);
+  assert.match(analyzer, /INFRASTRUCTURE_SYMPTOM_TERMS/);
+  assert.match(analyzer, /NON_INFRASTRUCTURE_CONTENT/);
+});

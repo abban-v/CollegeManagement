@@ -69,13 +69,18 @@ export const POST = withRole("ADMIN")(async (request: NextRequest) => {
   }
 });
 
-export const PATCH = withRole("ADMIN")(async (request: NextRequest) => {
+export const PATCH = withRole("ADMIN")(async (request: NextRequest, _context, session) => {
   try {
     const body = await request.json();
     const { userId, role } = body ?? {};
 
     if (!userId || !role || !Object.values(UserRole).includes(role)) {
       return sendJSON(errorResponse("Valid userId and role are required", 400));
+    }
+
+    // Safety guard: prevent administrator from demoting themselves
+    if (userId === session.userId && role !== UserRole.ADMIN) {
+      return sendJSON(errorResponse("You cannot remove your own administrator privileges", 400));
     }
 
     const user = await prisma.user.update({
@@ -93,5 +98,41 @@ export const PATCH = withRole("ADMIN")(async (request: NextRequest) => {
     return sendJSON(successResponse({ user }, 200));
   } catch (error: unknown) {
     return sendJSON(errorResponse(getErrorMessage(error, "Failed to update user role"), 500));
+  }
+});
+
+export const DELETE = withRole("ADMIN")(async (request: NextRequest, _context, session) => {
+  try {
+    const { searchParams } = new URL(request.url);
+    let userId = searchParams.get("userId");
+
+    if (!userId) {
+      try {
+        const body = await request.json();
+        userId = body?.userId;
+      } catch {}
+    }
+
+    if (!userId) {
+      return sendJSON(errorResponse("User ID is required to remove user", 400));
+    }
+
+    // Safety guard: prevent administrator from deleting themselves
+    if (userId === session.userId) {
+      return sendJSON(errorResponse("You cannot delete your own administrator account", 400));
+    }
+
+    const existing = await prisma.user.findUnique({ where: { id: userId } });
+    if (!existing) {
+      return sendJSON(errorResponse("User not found", 404));
+    }
+
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    return sendJSON(successResponse({ message: `User ${existing.email} removed successfully`, id: userId }, 200));
+  } catch (error: unknown) {
+    return sendJSON(errorResponse(getErrorMessage(error, "Failed to remove user"), 500));
   }
 });
