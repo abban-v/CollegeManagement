@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
   User,
   Issue,
@@ -195,9 +195,9 @@ function mapBackendIssueToFrontend(item: ApiIssue | Record<string, unknown>): Is
   }
 
   return {
-    id: item.id as string,
-    title: item.title as string,
-    description: item.description as string,
+    id: String(item.id ?? 'unknown'),
+    title: String(item.title ?? 'Untitled issue'),
+    description: String(item.description ?? ''),
     categoryId,
     departmentId,
     locationId: (item.location as string) || (item.locationId as string) || 'loc-main',
@@ -233,6 +233,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [reports, setReports] = useState<IssueReport[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  const pendingStatusTransitions = useRef<Set<string>>(new Set());
 
   // Fetch real issues from PostgreSQL database via API
   const refreshIssues = useCallback(async () => {
@@ -280,10 +281,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await apiClient.getIssue(issueId);
       if (res.data) {
-        const mapped = mapBackendIssueToFrontend(res.data);
+        const mapped = mapBackendIssueToFrontend((res.data as any) ?? {} as Record<string, unknown>);
         setIssues((prev) => [mapped, ...prev.filter((i) => i.id !== issueId)]);
 
-        if (res.data.comments && Array.isArray(res.data.comments)) {
+        const detailData = res.data as any;
+        if (detailData?.comments && Array.isArray(detailData.comments)) {
           setComments((prev) => ({
             ...prev,
             [issueId]: res.data!.comments!.map((c) => ({
@@ -302,7 +304,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }));
         }
 
-        if (res.data.statusHistory && Array.isArray(res.data.statusHistory)) {
+        if (detailData?.statusHistory && Array.isArray(detailData.statusHistory)) {
           setStatusHistory((prev) => ({
             ...prev,
             [issueId]: res.data!.statusHistory!.map((h: Record<string, unknown>) => ({
@@ -601,10 +603,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   ): Promise<boolean> => {
     const targetIssue = issues.find((i) => i.id === issueId);
     if (!targetIssue || !currentUser) return false;
+    if (pendingStatusTransitions.current.has(issueId)) return false;
+    if (targetIssue.status === newStatus) return true;
 
-    if (targetIssue.status === newStatus) {
-      return true;
-    }
+    pendingStatusTransitions.current.add(issueId);
 
     const previousStatus = targetIssue.status;
     const nowISO = new Date().toISOString();
@@ -677,6 +679,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         [issueId]: (prev[issueId] || []).filter((h) => h.id !== historyItem.id),
       }));
       return false;
+    } finally {
+      pendingStatusTransitions.current.delete(issueId);
     }
   };
 
