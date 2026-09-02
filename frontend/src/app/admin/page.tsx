@@ -258,8 +258,8 @@ export default function AdminDashboardPage() {
                           <td className="py-3.5 text-right space-x-2">
                             {(issue.status === 'REPORTED' || issue.status === 'UNDER_REVIEW' || issue.status === 'IN_PROGRESS' || issue.status === 'REOPENED') ? (
                               <button
-                                onClick={() => setSelectedIssueForProof(issue.id)}
-                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] transition-colors"
+                                onClick={() => setSelectedIssueForProof({ id: issue.id, title: issue.title })}
+                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] transition-colors cursor-pointer"
                               >
                                 Submit Proof
                               </button>
@@ -472,8 +472,8 @@ export default function AdminDashboardPage() {
       {/* Resolution Proof Modal */}
       {selectedIssueForProof && (
         <ResolutionProofModal
-          issueId={selectedIssueForProof}
-          issueTitle={selectedIssueForProof}
+          issueId={selectedIssueForProof.id}
+          issueTitle={selectedIssueForProof.title}
           isOpen={true}
           onClose={() => setSelectedIssueForProof(null)}
         />

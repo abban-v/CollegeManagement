@@ -55,7 +55,6 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'diagnostics' | 'evidence'>('details');
-  const [assetId, setAssetId] = useState<string | undefined>(undefined);
 
   // Duplicate detection
   const potentialDuplicates = useMemo(() => {
