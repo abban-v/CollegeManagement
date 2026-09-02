@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/lib/store';
+import { apiClient } from '@/lib/api';
+import { UserRole } from '@/lib/types';
 import { Navbar } from '@/components/layout/Navbar';
 import { StatusBadge, PriorityBadge, ModerationBadge } from '@/components/ui/Badge';
 import { ResolutionProofModal } from '@/components/issues/ResolutionProofModal';
@@ -16,9 +18,27 @@ import {
   ShieldAlert,
   Bot,
   Loader2,
-  Trash2
+  Trash2,
+  Users,
+  UserPlus,
+  UserCheck,
+  Search,
+  Check,
+  RefreshCw,
+  X,
+  Shield,
+  ShieldCheck,
+  User as UserIcon
 } from 'lucide-react';
 import Link from 'next/link';
+
+interface AdminUserRecord {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  createdAt?: string;
+}
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -31,8 +51,40 @@ export default function AdminDashboardPage() {
     isLoadingAuth,
   } = useApp();
   
-  const [activeTab, setActiveTab] = useState<'workorders' | 'moderation' | 'ai_insights'>('workorders');
+  const [activeTab, setActiveTab] = useState<'workorders' | 'moderation' | 'ai_insights' | 'users'>('workorders');
   const [selectedIssueForProof, setSelectedIssueForProof] = useState<{ id: string; title: string } | null>(null);
+
+  // User Management State
+  const [usersList, setUsersList] = useState<AdminUserRecord[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<'ALL' | UserRole>('ALL');
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserRole, setNewUserRole] = useState<UserRole>('MODERATOR');
+  const [isSubmittingUser, setIsSubmittingUser] = useState(false);
+  const [userActionFeedback, setUserActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const fetchUsers = useCallback(async () => {
+    setIsLoadingUsers(true);
+    try {
+      const res = await apiClient.getAdminUsers();
+      if (res.data?.users) {
+        setUsersList(res.data.users);
+      }
+    } catch {
+      console.warn('Failed to load users');
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'users' || currentUser?.role === 'ADMIN') {
+      fetchUsers();
+    }
+  }, [activeTab, currentUser?.role, fetchUsers]);
 
   useEffect(() => {
     if (!isLoadingAuth && !currentUser) {
@@ -177,6 +229,18 @@ export default function AdminDashboardPage() {
           >
             <Bot className="w-4 h-4 text-purple-400" />
             AI Intelligence Diagnostics
+          </button>
+
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+              activeTab === 'users'
+                ? 'bg-purple-950/80 text-purple-300 border border-purple-500/40 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Users className="w-4 h-4 text-indigo-400" />
+            User & Role Management ({usersList.length})
           </button>
         </div>
 
@@ -467,7 +531,411 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
+        {/* TAB 4: USER & ROLE MANAGEMENT */}
+        {activeTab === 'users' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            
+            {/* Feedback Alert */}
+            {userActionFeedback && (
+              <div
+                className={`p-4 rounded-xl border flex items-center justify-between gap-3 text-xs font-medium ${
+                  userActionFeedback.type === 'success'
+                    ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-300'
+                    : 'bg-rose-950/50 border-rose-500/40 text-rose-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {userActionFeedback.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                  )}
+                  <span>{userActionFeedback.message}</span>
+                </div>
+                <button
+                  onClick={() => setUserActionFeedback(null)}
+                  className="p-1 hover:text-white rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* User Breakdown Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="p-4 rounded-xl glass-panel border border-amber-500/30">
+                <span className="text-xs text-amber-300 font-semibold flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-amber-400" />
+                  System Admins
+                </span>
+                <p className="text-xl font-bold text-white mt-1.5">
+                  {usersList.filter((u) => u.role === 'ADMIN').length}
+                </p>
+                <span className="text-[10px] text-slate-400">Full system access</span>
+              </div>
+
+              <div className="p-4 rounded-xl glass-panel border border-indigo-500/30">
+                <span className="text-xs text-indigo-300 font-semibold flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-indigo-400" />
+                  Staff Officials
+                </span>
+                <p className="text-xl font-bold text-white mt-1.5">
+                  {usersList.filter((u) => u.role === 'OFFICIAL').length}
+                </p>
+                <span className="text-[10px] text-slate-400">Work order resolution</span>
+              </div>
+
+              <div className="p-4 rounded-xl glass-panel border border-purple-500/30">
+                <span className="text-xs text-purple-300 font-semibold flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
+                  Moderators
+                </span>
+                <p className="text-xl font-bold text-white mt-1.5">
+                  {usersList.filter((u) => u.role === 'MODERATOR').length}
+                </p>
+                <span className="text-[10px] text-slate-400">Spam & abuse control</span>
+              </div>
+
+              <div className="p-4 rounded-xl glass-panel border border-emerald-500/30">
+                <span className="text-xs text-emerald-300 font-semibold flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-emerald-400" />
+                  Campus Students
+                </span>
+                <p className="text-xl font-bold text-white mt-1.5">
+                  {usersList.filter((u) => u.role === 'STUDENT').length}
+                </p>
+                <span className="text-[10px] text-slate-400">Standard reporters</span>
+              </div>
+            </div>
+
+            {/* Filter and Action Header */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+              <div className="flex-1 flex items-center gap-3">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search users by name, email, or role..."
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-[#080c20] border border-indigo-950 text-xs text-white placeholder-slate-500 focus:border-purple-500 outline-none"
+                  />
+                </div>
+
+                <button
+                  onClick={fetchUsers}
+                  disabled={isLoadingUsers}
+                  className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-indigo-500/40 transition-all cursor-pointer shrink-0"
+                  title="Refresh Users"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isLoadingUsers ? 'animate-spin text-purple-400' : ''}`} />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Role Filter Pills */}
+                <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-900/80 border border-slate-800">
+                  {(['ALL', 'ADMIN', 'OFFICIAL', 'MODERATOR', 'STUDENT'] as const).map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => setSelectedRoleFilter(r)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                        selectedRoleFilter === r
+                          ? 'bg-purple-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      {r === 'ALL' ? 'All Roles' : r}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Add / Promote User Button */}
+                {currentUser?.role === 'ADMIN' && (
+                  <button
+                    onClick={() => setIsAddUserOpen(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-[0_0_15px_rgba(168,85,247,0.3)] transition-all cursor-pointer shrink-0"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Add / Promote Staff
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Users Directory Table */}
+            <div className="rounded-2xl glass-panel border border-indigo-500/20 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-indigo-950/80 bg-slate-900/60 text-slate-400 font-semibold uppercase tracking-wider">
+                      <th className="py-3.5 pl-6 pr-4">User</th>
+                      <th className="py-3.5 pr-4">Email Address</th>
+                      <th className="py-3.5 pr-4">Current Role</th>
+                      <th className="py-3.5 pr-4">Registered Date</th>
+                      <th className="py-3.5 pr-6 text-right">Role Assignment</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-indigo-950/60">
+                    {isLoadingUsers && usersList.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-12 text-center text-slate-400">
+                          <div className="flex flex-col items-center gap-2">
+                            <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
+                            <span>Loading user directory...</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      usersList
+                        .filter((u) => {
+                          if (selectedRoleFilter !== 'ALL' && u.role !== selectedRoleFilter) return false;
+                          if (userSearch.trim()) {
+                            const query = userSearch.toLowerCase();
+                            return (
+                              u.name.toLowerCase().includes(query) ||
+                              u.email.toLowerCase().includes(query) ||
+                              u.role.toLowerCase().includes(query)
+                            );
+                          }
+                          return true;
+                        })
+                        .map((u) => {
+                          const isSelf = u.id === currentUser?.id;
+                          return (
+                            <tr key={u.id} className="hover:bg-slate-900/40 transition-colors">
+                              <td className="py-4 pl-6 pr-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center font-bold text-white text-xs shadow-inner shrink-0">
+                                    {u.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold text-white flex items-center gap-1.5">
+                                      {u.name}
+                                      {isSelf && (
+                                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-950 text-purple-300 border border-purple-500/40 font-normal">
+                                          You
+                                        </span>
+                                      )}
+                                    </p>
+                                    <p className="text-[11px] text-slate-500">ID: {u.id.slice(0, 12)}...</p>
+                                  </div>
+                                </div>
+                              </td>
+
+                              <td className="py-4 pr-4">
+                                <span className="text-slate-300 font-mono text-[11px]">{u.email}</span>
+                              </td>
+
+                              <td className="py-4 pr-4">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide border ${
+                                    u.role === 'ADMIN'
+                                      ? 'bg-amber-950/70 text-amber-300 border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                                      : u.role === 'OFFICIAL'
+                                      ? 'bg-indigo-950/70 text-indigo-300 border-indigo-500/40'
+                                      : u.role === 'MODERATOR'
+                                      ? 'bg-purple-950/70 text-purple-300 border-purple-500/40'
+                                      : 'bg-emerald-950/70 text-emerald-300 border-emerald-500/40'
+                                  }`}
+                                >
+                                  {u.role === 'ADMIN' && <Shield className="w-3 h-3 text-amber-400" />}
+                                  {u.role === 'OFFICIAL' && <Building2 className="w-3 h-3 text-indigo-400" />}
+                                  {u.role === 'MODERATOR' && <ShieldCheck className="w-3 h-3 text-purple-400" />}
+                                  {u.role === 'STUDENT' && <UserIcon className="w-3 h-3 text-emerald-400" />}
+                                  {u.role}
+                                </span>
+                              </td>
+
+                              <td className="py-4 pr-4 text-slate-400 text-[11px]">
+                                {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Active'}
+                              </td>
+
+                              <td className="py-4 pr-6 text-right">
+                                {currentUser?.role === 'ADMIN' ? (
+                                  <select
+                                    value={u.role}
+                                    onChange={async (e) => {
+                                      const nextRole = e.target.value as UserRole;
+                                      if (nextRole === u.role) return;
+                                      
+                                      try {
+                                        const res = await apiClient.updateUserRole(u.id, nextRole);
+                                        if (res.data?.user) {
+                                          setUsersList((prev) =>
+                                            prev.map((item) => (item.id === u.id ? { ...item, role: nextRole } : item))
+                                          );
+                                          setUserActionFeedback({
+                                            type: 'success',
+                                            message: `Updated ${u.name}'s role to ${nextRole}.`,
+                                          });
+                                        } else {
+                                          setUserActionFeedback({
+                                            type: 'error',
+                                            message: res.error || 'Failed to update user role.',
+                                          });
+                                        }
+                                      } catch {
+                                        setUserActionFeedback({
+                                          type: 'error',
+                                          message: 'Network error updating user role.',
+                                        });
+                                      }
+                                    }}
+                                    className="px-3 py-1.5 rounded-lg bg-[#070a1a] border border-indigo-950 text-xs font-semibold text-slate-200 focus:border-purple-500 outline-none cursor-pointer"
+                                  >
+                                    <option value="STUDENT">STUDENT (Reporter)</option>
+                                    <option value="MODERATOR">MODERATOR (Spam Control)</option>
+                                    <option value="OFFICIAL">OFFICIAL (Staff)</option>
+                                    <option value="ADMIN">ADMIN (Full Control)</option>
+                                  </select>
+                                ) : (
+                                  <span className="text-[11px] text-slate-500 font-medium">Read-only</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        )}
+
       </main>
+
+      {/* Add / Promote User Modal */}
+      {isAddUserOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#0b0f24] border border-purple-500/30 rounded-3xl max-w-md w-full p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+            
+            <div className="flex items-center justify-between pb-4 border-b border-indigo-950/80 mb-5">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-purple-950/80 border border-purple-500/40 text-purple-300">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Add / Promote Staff Member</h3>
+                  <p className="text-xs text-slate-400">Assign admin, official, or moderator privileges</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsAddUserOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!newUserEmail.trim()) return;
+
+                setIsSubmittingUser(true);
+                try {
+                  const res = await apiClient.addAdminUser({
+                    email: newUserEmail.trim(),
+                    name: newUserName.trim() || undefined,
+                    role: newUserRole,
+                  });
+
+                  if (res.data?.user) {
+                    setUserActionFeedback({
+                      type: 'success',
+                      message: `User ${res.data.user.email} successfully assigned role ${res.data.user.role}.`,
+                    });
+                    setNewUserEmail('');
+                    setNewUserName('');
+                    setIsAddUserOpen(false);
+                    fetchUsers();
+                  } else {
+                    setUserActionFeedback({
+                      type: 'error',
+                      message: res.error || 'Failed to add user.',
+                    });
+                  }
+                } catch {
+                  setUserActionFeedback({
+                    type: 'error',
+                    message: 'Network error adding user.',
+                  });
+                } finally {
+                  setIsSubmittingUser(false);
+                }
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Institutional Email Address <span className="text-purple-400">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. faculty@cet.ac.in or moderator@cet.ac.in"
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#070a1a] border border-indigo-950 text-xs text-white placeholder-slate-500 focus:border-purple-500 outline-none font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Full Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Dr. Ramesh Kumar"
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#070a1a] border border-indigo-950 text-xs text-white placeholder-slate-500 focus:border-purple-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Assigned Privileged Role <span className="text-purple-400">*</span>
+                </label>
+                <select
+                  value={newUserRole}
+                  onChange={(e) => setNewUserRole(e.target.value as UserRole)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#070a1a] border border-indigo-950 text-xs text-slate-200 focus:border-purple-500 outline-none cursor-pointer"
+                >
+                  <option value="MODERATOR">MODERATOR — Review spam & duplicate tickets</option>
+                  <option value="OFFICIAL">OFFICIAL — Dispatch & resolve work orders</option>
+                  <option value="ADMIN">ADMIN — Full system access & role management</option>
+                  <option value="STUDENT">STUDENT — Campus issue reporter</option>
+                </select>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-3 border-t border-indigo-950/80">
+                <button
+                  type="button"
+                  onClick={() => setIsAddUserOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingUser}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-xs font-semibold text-white shadow-md transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingUser && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Save / Assign Role
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      )}
 
       {/* Resolution Proof Modal */}
       {selectedIssueForProof && (

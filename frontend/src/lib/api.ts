@@ -5,6 +5,8 @@
  * Uses `credentials: 'include'` to pass HTTP-only session cookies across origins.
  */
 
+import { UserRole } from './types';
+
 const rawBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
 export const API_BASE_URL = rawBase.replace(/\/+$/, '');
 
@@ -19,7 +21,7 @@ export interface AuthUser {
   id: string;
   email: string;
   name: string | null;
-  role: 'STUDENT' | 'OFFICIAL' | 'MODERATOR' | 'ADMIN';
+  role: UserRole;
 }
 
 export interface Issue {
@@ -512,5 +514,34 @@ export const apiClient = {
       method: 'POST',
       body: formData,
     });
+  },
+
+  // ─── User & Role Management ───────────────────────────────────────────────
+
+  async getAdminUsers() {
+    return apiFetch<{ users: Array<{ id: string; email: string; name: string; role: UserRole; createdAt?: string }> }>(
+      '/admin/users',
+      { method: 'GET' }
+    );
+  },
+
+  async updateUserRole(userId: string, role: UserRole) {
+    return apiFetch<{ user: { id: string; email: string; name: string; role: UserRole } }>(
+      '/admin/users',
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ userId, role }),
+      }
+    );
+  },
+
+  async addAdminUser(data: { email: string; name?: string; role: UserRole }) {
+    return apiFetch<{ user: { id: string; email: string; name: string; role: UserRole }; message?: string }>(
+      '/admin/users',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
   },
 };
