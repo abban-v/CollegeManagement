@@ -22,6 +22,24 @@ export class FabricatedSpamError extends Error {
   }
 }
 
+export class DuplicateIssueError extends Error {
+  public status: number;
+  public duplicateIssueId?: string | null;
+  public duplicateIssueTitle?: string | null;
+
+  constructor(
+    message: string = "Issue already exists, instead of creating new one, upvote the previous issue",
+    duplicateIssueId?: string | null,
+    duplicateIssueTitle?: string | null
+  ) {
+    super(message);
+    this.name = "DuplicateIssueError";
+    this.status = 409;
+    this.duplicateIssueId = duplicateIssueId;
+    this.duplicateIssueTitle = duplicateIssueTitle;
+  }
+}
+
 /**
  * IssueService handles all business logic for issues.
  *
@@ -39,25 +57,41 @@ export class IssueService {
   /**
    * Create a new issue
    *
-   * Analyzes the issue for spam and confidence:
-   * 1. If spamScore > 0.8 AND confidence < 0.3: Reject immediately (deleted/not created).
-   * 2. If spamScore > 0.5 AND confidence < 0.6: Kept for review (UNDER_REVIEW) and not shown on public feed.
-   * 3. Otherwise: Normal issue creation.
+   * Analyzes the issue for spam, duplicates, and confidence:
+   * 1. If duplicate of an existing unresolved issue: Reject with "Issue already exists, instead of creating new one, upvote the previous issue".
+   * 2. If spamScore > 0.8 AND confidence < 0.3: Reject immediately (deleted/not created).
+   * 3. If spamScore > 0.5 AND confidence < 0.6: Kept for review (UNDER_REVIEW) and not shown on public feed.
+   * 4. Otherwise: Normal issue creation.
    */
   async createIssue(
     input: CreateIssueInput,
     reporterId: string
   ) {
-    // 1. Run duplicate detection against recent issues
-    const recentIssues = await prisma.issue.findMany({
+    // 1. Run duplicate detection against currently active / unresolved issues
+    const activeIssues = await prisma.issue.findMany({
+      where: {
+        status: { notIn: [IssueStatus.VERIFIED, IssueStatus.CLOSED] },
+        moderationStatus: { not: ModerationStatus.REMOVED },
+      },
       orderBy: { createdAt: "desc" },
-      take: 50,
-      select: { id: true, title: true, description: true },
+      take: 30,
+      select: { id: true, title: true, description: true, location: true, status: true, category: true },
     });
-    const duplicateCandidates = findDuplicateCandidates(input, recentIssues);
+    const duplicateCandidates = findDuplicateCandidates(input, activeIssues);
 
-    // 2. Perform AI analysis for spam score, confidence, and triage
-    const analysis = await analyzeIssue(input, duplicateCandidates);
+    // 2. Perform AI analysis for spam score, confidence, duplicate detection and triage
+    const analysis = await analyzeIssue(input, activeIssues, duplicateCandidates);
+
+    // Duplicate Check: If AI or similarity matches an existing unresolved issue
+    if (analysis.isDuplicate || (duplicateCandidates.length > 0 && duplicateCandidates[0].confidence >= 0.70)) {
+      const matchId = analysis.duplicateOfIssueId || duplicateCandidates[0]?.issueId;
+      const matchTitle = analysis.duplicateIssueTitle || duplicateCandidates[0]?.title;
+      throw new DuplicateIssueError(
+        "Issue already exists, instead of creating new one, upvote the previous issue",
+        matchId,
+        matchTitle
+      );
+    }
 
     // Rule 3: If spam rating > 80% and confidence < 30%, reject and delete the issue
     if (analysis.spamScore > 0.8 && analysis.confidence < 0.3) {

@@ -1,6 +1,15 @@
 import { IssuePriority, type Issue } from "@prisma/client";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+export type ExistingIssueContext = {
+  id: string;
+  title: string;
+  description: string;
+  location?: string | null;
+  status?: string | null;
+  category?: string | null;
+};
+
 export type DuplicateCandidate = {
   issueId: string;
   title: string;
@@ -25,6 +34,9 @@ export type IssueAnalysisResult = {
   moderationFlags: string[];
   confidence: number;
   duplicateCandidates: DuplicateCandidate[];
+  isDuplicate?: boolean;
+  duplicateOfIssueId?: string | null;
+  duplicateIssueTitle?: string | null;
   reasoning: string;
   modelUsed: string;
 };
@@ -86,16 +98,26 @@ function jaccard(a: Set<string>, b: Set<string>) {
 
 export function findDuplicateCandidates(
   input: IssueAnalysisInput,
-  issues: Pick<Issue, "id" | "title" | "description">[]
+  issues: ExistingIssueContext[]
 ): DuplicateCandidate[] {
-  const targetTokens = tokenize(`${input.title} ${input.description}`);
+  const targetTokens = tokenize(`${input.title} ${input.description} ${input.location || ""}`);
 
   return issues
-    .map((issue) => ({
-      issueId: issue.id,
-      title: issue.title,
-      confidence: Number(jaccard(targetTokens, tokenize(`${issue.title} ${issue.description}`)).toFixed(2)),
-    }))
+    .map((issue) => {
+      const issueTokens = tokenize(`${issue.title} ${issue.description} ${issue.location || ""}`);
+      const baseJaccard = jaccard(targetTokens, issueTokens);
+      const locMatch =
+        input.location &&
+        issue.location &&
+        input.location.toLowerCase().trim() === issue.location.toLowerCase().trim();
+      const rawScore = locMatch ? Math.min(1, baseJaccard + 0.25) : baseJaccard;
+
+      return {
+        issueId: issue.id,
+        title: issue.title,
+        confidence: Number(rawScore.toFixed(2)),
+      };
+    })
     .filter((candidate) => candidate.confidence >= 0.35)
     .sort((a, b) => b.confidence - a.confidence)
     .slice(0, 5);
@@ -138,6 +160,11 @@ export function analyzeIssueLocally(
 
   const toxicityScore = hasToxicTerms ? 0.80 : 0.01;
 
+  const topCandidate = duplicateCandidates[0];
+  const isDuplicate = Boolean(topCandidate && topCandidate.confidence >= 0.70);
+  const duplicateOfIssueId = isDuplicate && topCandidate ? topCandidate.issueId : null;
+  const duplicateIssueTitle = isDuplicate && topCandidate ? topCandidate.title : null;
+
   const moderationFlags = [
     ...(spamScore >= 0.5 ? ["SPAM"] : []),
     ...(toxicityScore >= 0.6 ? ["TOXIC_LANGUAGE"] : []),
@@ -149,7 +176,9 @@ export function analyzeIssueLocally(
   const aiPriority = matchedPriority?.priority ?? IssuePriority.MEDIUM;
 
   let reasoning = `Local rules evaluated ${category} with ${aiPriority} priority.`;
-  if (spamScore > 0.8 && confidence < 0.3) {
+  if (isDuplicate) {
+    reasoning = `Local analyzer detected existing issue "${duplicateIssueTitle}" as duplicate.`;
+  } else if (spamScore > 0.8 && confidence < 0.3) {
     reasoning = "Local analyzer flagged input as severe spam or gibberish.";
   } else if (spamScore > 0.5 && confidence < 0.6) {
     reasoning = "Local analyzer identified potential spam or low-confidence issue requiring review.";
@@ -165,6 +194,9 @@ export function analyzeIssueLocally(
     moderationFlags,
     confidence,
     duplicateCandidates,
+    isDuplicate,
+    duplicateOfIssueId,
+    duplicateIssueTitle,
     reasoning,
     modelUsed: "slashforge-local-rules-v1",
   };
@@ -188,6 +220,7 @@ function clampScore(value: unknown, fallback: number) {
 
 async function analyzeIssueWithGemini(
   input: IssueAnalysisInput,
+  existingIssues: ExistingIssueContext[],
   duplicateCandidates: DuplicateCandidate[],
   fallback: IssueAnalysisResult
 ): Promise<IssueAnalysisResult> {
@@ -202,34 +235,60 @@ async function analyzeIssueWithGemini(
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: modelName });
 
-    const prompt = `You are the AI Quality & Triage Sentinel for a College Campus Infrastructure and Asset Issue Reporting Platform.
-Your task is to analyze submitted issues for validity, category, priority, spam likelihood, and authenticity.
+    const existingIssuesListText = existingIssues && existingIssues.length > 0
+      ? existingIssues
+          .slice(0, 15)
+          .map(
+            (iss, i) =>
+              `${i + 1}. [ID: ${iss.id}] Status: ${iss.status || "REPORTED"} | Location: ${
+                iss.location || "N/A"
+              } | Title: "${iss.title}" | Description: "${iss.description.slice(0, 120)}"`
+          )
+          .join("\n")
+      : "None currently active.";
 
-Carefully evaluate the following issue for authenticity and campus relevance:
+    const prompt = `You are the AI Quality & Triage Sentinel for a College Campus Infrastructure and Asset Issue Reporting Platform.
+Your task is to analyze submitted issues for validity, category, priority, spam likelihood, authenticity, and duplicate detection against already reported / active platform issues.
+
+Carefully evaluate the newly submitted issue:
 - Title: "${input.title}"
 - Description: "${input.description}"
 - User Category: "${input.category || "not specified"}"
 - User Department: "${input.department || "not specified"}"
 - Location: "${input.location || "not specified"}"
-- Known Potential Duplicates: ${JSON.stringify(duplicateCandidates)}
+
+CURRENTLY REPORTED & ACTIVE PLATFORM ISSUES:
+${existingIssuesListText}
 
 CRITICAL EVALUATION RUBRIC:
-1. spamScore (float between 0.0 and 1.0):
+1. DUPLICATE DETECTION:
+   - Check if this newly submitted issue is reporting the EXACT SAME or SUBSTANTIALLY IDENTICAL problem, incident, room, or equipment that is already being resolved or reported in the CURRENTLY REPORTED & ACTIVE PLATFORM ISSUES list above (e.g. same projector in same room, same water leak in same washroom, same AC breakdown).
+   - If it is a duplicate of an existing unresolved/open issue:
+     - Set "isDuplicate": true
+     - Set "duplicateOfIssueId": "<matching-issue-id>"
+     - Set "duplicateIssueTitle": "<matching-issue-title>"
+     - Include "POSSIBLE_DUPLICATE" in "moderationFlags".
+   - If it is a unique/new issue:
+     - Set "isDuplicate": false
+     - Set "duplicateOfIssueId": null
+     - Set "duplicateIssueTitle": null
+
+2. spamScore (float between 0.0 and 1.0):
    - 0.81 to 1.00 (High / Severe Spam or Fabrication): Blatant spam, advertising, commercial promotions, crypto, casinos, external links, gibberish/keyboard mashing (e.g., 'asdfgh', 'test 12345'), fabricated stories, malicious text, trolling, or completely nonsensical input.
    - 0.51 to 0.80 (Potential Spam / Ambiguous): Unclear/vague claims, rambling disconnected text, suspicious wording, joke submissions, or lacking authentic campus context.
    - 0.00 to 0.50 (Legitimate): Genuine campus infrastructure, equipment, or facility problem.
 
-2. confidence (float between 0.0 and 1.0):
+3. confidence (float between 0.0 and 1.0):
    - 0.80 to 1.00 (High Confidence): Specific, coherent, well-described problem with clear physical location and actionable symptoms.
    - 0.60 to 0.79 (Moderate Confidence): Plausible campus maintenance issue but with brief or basic detail.
    - 0.30 to 0.59 (Low Confidence): Ambiguous or poorly worded, uncertain if it represents a real actionable issue.
    - 0.00 to 0.29 (Very Low Confidence): Incoherent, nonsensical, fabricated, gibberish, or impossible to determine any legitimate maintenance issue.
 
-3. category: One of "Electrical & Power", "HVAC & Ventilation", "Plumbing & Water", "Lab Hardware & Computers", "Projectors & AV Systems", "Furniture & Desks", "General Infrastructure", "Network & IT", "Campus Safety", or "UNCATEGORIZED".
-4. priority: One of "LOW", "MEDIUM", "HIGH", "CRITICAL".
-5. severity: One of "LOW", "MEDIUM", "HIGH", "CRITICAL".
-6. toxicityScore: 0.0 to 1.0 likelihood of profanity, harassment, or abusive attacks.
-7. moderationFlags: Array of strings. Include "SPAM" if spamScore > 0.5. Include "TOXIC_LANGUAGE" if toxicityScore > 0.6. Include "POSSIBLE_FABRICATION" if spamScore > 0.8 and confidence < 0.3.
+4. category: One of "Electrical & Power", "HVAC & Ventilation", "Plumbing & Water", "Lab Hardware & Computers", "Projectors & AV Systems", "Furniture & Desks", "General Infrastructure", "Network & IT", "Campus Safety", or "UNCATEGORIZED".
+5. priority: One of "LOW", "MEDIUM", "HIGH", "CRITICAL".
+6. severity: One of "LOW", "MEDIUM", "HIGH", "CRITICAL".
+7. toxicityScore: 0.0 to 1.0 likelihood of profanity, harassment, or abusive attacks.
+8. moderationFlags: Array of strings. Include "SPAM" if spamScore > 0.5. Include "TOXIC_LANGUAGE" if toxicityScore > 0.6. Include "POSSIBLE_FABRICATION" if spamScore > 0.8 and confidence < 0.3. Include "POSSIBLE_DUPLICATE" if isDuplicate is true.
 
 Return ONLY a valid JSON object matching this exact format with NO surrounding markdown backticks or commentary:
 {
@@ -241,6 +300,9 @@ Return ONLY a valid JSON object matching this exact format with NO surrounding m
   "spamScore": 0.02,
   "toxicityScore": 0.0,
   "moderationFlags": [],
+  "isDuplicate": false,
+  "duplicateOfIssueId": null,
+  "duplicateIssueTitle": null,
   "reasoning": "Clear explanation of the assessment and why these scores were assigned."
 }`;
 
@@ -256,6 +318,7 @@ Return ONLY a valid JSON object matching this exact format with NO surrounding m
 
     const parsed = JSON.parse(jsonMatch[0]);
     const aiPriority = normalizePriority(parsed.priority);
+    const isDuplicate = typeof parsed.isDuplicate === "boolean" ? parsed.isDuplicate : fallback.isDuplicate;
 
     return {
       category: typeof parsed.category === "string" ? parsed.category : fallback.category,
@@ -270,6 +333,9 @@ Return ONLY a valid JSON object matching this exact format with NO surrounding m
         : fallback.moderationFlags,
       confidence: clampScore(parsed.confidence, fallback.confidence),
       duplicateCandidates,
+      isDuplicate,
+      duplicateOfIssueId: typeof parsed.duplicateOfIssueId === "string" ? parsed.duplicateOfIssueId : fallback.duplicateOfIssueId,
+      duplicateIssueTitle: typeof parsed.duplicateIssueTitle === "string" ? parsed.duplicateIssueTitle : fallback.duplicateIssueTitle,
       reasoning: typeof parsed.reasoning === "string" ? parsed.reasoning : fallback.reasoning,
       modelUsed: modelName,
     };
@@ -281,12 +347,13 @@ Return ONLY a valid JSON object matching this exact format with NO surrounding m
 
 export async function analyzeIssue(
   input: IssueAnalysisInput,
+  existingIssues: ExistingIssueContext[] = [],
   duplicateCandidates: DuplicateCandidate[] = []
 ): Promise<IssueAnalysisResult> {
   const fallback = analyzeIssueLocally(input, duplicateCandidates);
 
   try {
-    return await analyzeIssueWithGemini(input, duplicateCandidates, fallback);
+    return await analyzeIssueWithGemini(input, existingIssues, duplicateCandidates, fallback);
   } catch (error) {
     console.warn("Gemini analysis unavailable, falling back to local analyzer", error);
     return fallback;

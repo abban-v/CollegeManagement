@@ -52,3 +52,23 @@ test("admin moderation route includes analysis and reporter and supports DELETE"
   assert.match(moderationRoute, /reporter:\s*\{/);
   assert.match(moderationItemRoute, /export const DELETE = withRole\("MODERATOR", "ADMIN"\)/);
 });
+
+test("analyzer prompt includes currently reported & active platform issues for duplicate detection", () => {
+  const analyzer = read("src/modules/ai/analyzer.ts");
+  assert.match(analyzer, /CURRENTLY REPORTED & ACTIVE PLATFORM ISSUES/);
+  assert.match(analyzer, /DUPLICATE DETECTION/);
+  assert.match(analyzer, /isDuplicate/);
+  assert.match(analyzer, /duplicateOfIssueId/);
+});
+
+test("issue service rejects duplicates with exact user message", () => {
+  const service = read("src/modules/issues/service.ts");
+  assert.match(service, /DuplicateIssueError/);
+  assert.match(service, /Issue already exists, instead of creating new one, upvote the previous issue/);
+});
+
+test("issues POST route catches DuplicateIssueError with 409 status", () => {
+  const route = read("src/app/api/v1/issues/route.ts");
+  assert.match(route, /DuplicateIssueError/);
+  assert.match(route, /409/);
+});

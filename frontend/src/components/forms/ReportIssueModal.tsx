@@ -199,16 +199,58 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
           
           {/* Submission Error Alert */}
           {errorMessage && (
-            <div className="p-4 rounded-xl bg-rose-950/80 border border-rose-500/50 shadow-inner flex items-start gap-3">
-              <AlertOctagon className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            <div
+              className={`p-4 rounded-xl border shadow-inner flex items-start gap-3 ${
+                errorMessage.includes('Issue already exists')
+                  ? 'bg-amber-950/80 border-amber-500/60 text-amber-200'
+                  : 'bg-rose-950/80 border-rose-500/50 text-rose-200'
+              }`}
+            >
+              {errorMessage.includes('Issue already exists') ? (
+                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+              ) : (
+                <AlertOctagon className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+              )}
               <div className="flex-1">
-                <h4 className="text-xs font-bold text-rose-200">Problem Report Not Accepted</h4>
-                <p className="text-xs text-rose-300 mt-1 leading-relaxed">{errorMessage}</p>
+                <h4
+                  className={`text-xs font-bold ${
+                    errorMessage.includes('Issue already exists') ? 'text-amber-200' : 'text-rose-200'
+                  }`}
+                >
+                  {errorMessage.includes('Issue already exists')
+                    ? 'Duplicate Problem Report Detected'
+                    : 'Problem Report Not Accepted'}
+                </h4>
+                <p
+                  className={`text-xs mt-1 leading-relaxed ${
+                    errorMessage.includes('Issue already exists') ? 'text-amber-300' : 'text-rose-300'
+                  }`}
+                >
+                  {errorMessage}
+                </p>
+                {errorMessage.includes('Issue already exists') && potentialDuplicates.length > 0 && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toggleAffected(potentialDuplicates[0].id);
+                        alert("You've upvoted the existing issue (added to Affected users)!");
+                        onClose();
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <ThumbsUp className="w-3.5 h-3.5" />
+                      Upvote Previous Issue Now
+                    </button>
+                  </div>
+                )}
               </div>
               <button
                 type="button"
                 onClick={() => setErrorMessage(null)}
-                className="text-rose-400 hover:text-white p-1"
+                className={`hover:text-white p-1 ${
+                  errorMessage.includes('Issue already exists') ? 'text-amber-400' : 'text-rose-400'
+                }`}
               >
                 <X className="w-4 h-4" />
               </button>
