@@ -399,13 +399,19 @@ export const apiClient = {
   // ─── Admin / Moderation ────────────────────────────────────────────────────
 
   async getModerationQueue() {
-    return apiFetch<{ flaggedIssues: Array<Issue> }>('/admin/moderation', { method: 'GET' });
+    return apiFetch<{ reports: Array<unknown>; flaggedIssues: Array<Issue> }>('/admin/moderation', { method: 'GET' });
   },
 
   async moderateIssue(issueId: string, moderationStatus: string, reason?: string) {
     return apiFetch<Issue>(`/admin/moderation/${issueId}`, {
       method: 'PATCH',
       body: JSON.stringify({ moderationStatus, reason }),
+    });
+  },
+
+  async deleteModeratedIssue(issueId: string) {
+    return apiFetch<{ message: string; id: string }>(`/admin/moderation/${issueId}`, {
+      method: 'DELETE',
     });
   },
 

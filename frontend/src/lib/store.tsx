@@ -75,6 +75,7 @@ interface AppContextType {
   addComment: (issueId: string, body: string, attachments?: string[]) => Promise<void>;
   reportIssueContent: (issueId: string, reason: IssueReport['reason'], details?: string) => Promise<void>;
   moderateIssue: (issueId: string, moderationStatus: ModerationStatus, reason?: string) => Promise<void>;
+  deleteIssuePermanent: (issueId: string) => Promise<void>;
   addAsset: (asset: Asset) => Promise<void>;
   deleteAsset: (assetId: string) => Promise<void>;
   
@@ -931,6 +932,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {}
   };
 
+  const deleteIssuePermanent = async (issueId: string) => {
+    setIssues((prev) => prev.filter((i) => i.id !== issueId));
+    try {
+      await apiClient.deleteModeratedIssue(issueId);
+    } catch (e) {
+      console.warn('Permanent delete error:', e);
+    }
+  };
+
   const markNotificationRead = async (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
     try {
@@ -1060,6 +1070,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addComment,
         reportIssueContent,
         moderateIssue,
+        deleteIssuePermanent,
         markNotificationRead,
         markAllNotificationsRead,
         getAssetById,

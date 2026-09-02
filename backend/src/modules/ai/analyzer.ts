@@ -47,8 +47,28 @@ const PRIORITY_RULES = [
   { priority: IssuePriority.MEDIUM, terms: ["slow", "intermittent", "noise", "unstable", "flicker"] },
 ];
 
-const SPAM_TERMS = ["buy now", "free money", "crypto", "casino", "click here"];
-const TOXIC_TERMS = ["idiot", "stupid", "hate", "kill"];
+const SPAM_TERMS = [
+  "buy now", "free money", "crypto", "casino", "click here", "viagra", "telegram",
+  "whatsapp", "discount", "cheap", "invest", "earn money", "loan", "free cash",
+  "dating", "escort", "subscribe", "lottery", "win cash", "prizes"
+];
+const TOXIC_TERMS = ["idiot", "stupid", "hate", "kill", "shut up", "dumb", "useless fool"];
+
+// Common keyboard mashing / gibberish substrings
+const GIBBERISH_PATTERNS = [
+  /^[a-z0-9]{1,4}$/i,
+  /[bcdfghjklmnpqrstvwxyz]{6,}/i, // 6+ consecutive consonants without vowels
+  /asdf|sdfg|dfgh|fghj|ghjk|hjkl|qwerty|zxcv|qwer|asdfg/i,
+  /(.)\1{4,}/, // 5+ repeated characters like aaaaa or 11111
+  /^test\s+test(\s+test)*$/i,
+  /^(blah|blabla|lorem\s+ipsum|foo\s+bar|asdf)\b/i,
+];
+
+function isGibberish(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length < 5) return true;
+  return GIBBERISH_PATTERNS.some((pattern) => pattern.test(trimmed));
+}
 
 function tokenize(value: string) {
   return new Set(value.toLowerCase().match(/[a-z0-9]+/g) ?? []);
@@ -85,20 +105,55 @@ export function analyzeIssueLocally(
   input: IssueAnalysisInput,
   duplicateCandidates: DuplicateCandidate[] = []
 ): IssueAnalysisResult {
-  const text = `${input.title} ${input.description}`.toLowerCase();
-  const matchedCategory = CATEGORY_RULES.find((rule) => includesAny(text, rule.terms));
-  const matchedPriority = PRIORITY_RULES.find((rule) => includesAny(text, rule.terms));
-  const spamScore = includesAny(text, SPAM_TERMS) ? 0.82 : 0.03;
-  const toxicityScore = includesAny(text, TOXIC_TERMS) ? 0.74 : 0.01;
+  const fullText = `${input.title} ${input.description}`.toLowerCase();
+  const titleText = input.title.toLowerCase();
+  const descText = input.description.toLowerCase();
+
+  const hasSpamTerms = includesAny(fullText, SPAM_TERMS);
+  const hasToxicTerms = includesAny(fullText, TOXIC_TERMS);
+  const titleGibberish = isGibberish(titleText);
+  const descGibberish = isGibberish(descText);
+  const isSevereGibberish = (titleGibberish && descGibberish) || fullText.length < 12;
+
+  const matchedCategory = CATEGORY_RULES.find((rule) => includesAny(fullText, rule.terms));
+  const matchedPriority = PRIORITY_RULES.find((rule) => includesAny(fullText, rule.terms));
+
+  let spamScore = 0.02;
+  let confidence = matchedCategory ? 0.88 : 0.65;
+
+  if (hasSpamTerms && isSevereGibberish) {
+    spamScore = 0.95;
+    confidence = 0.10;
+  } else if (isSevereGibberish) {
+    spamScore = 0.88;
+    confidence = 0.15;
+  } else if (hasSpamTerms) {
+    spamScore = 0.85;
+    confidence = 0.25;
+  } else if (titleGibberish || descGibberish || (!matchedCategory && fullText.length < 25)) {
+    // Potential spam / ambiguous
+    spamScore = 0.62;
+    confidence = 0.42;
+  }
+
+  const toxicityScore = hasToxicTerms ? 0.80 : 0.01;
+
   const moderationFlags = [
-    ...(spamScore >= 0.7 ? ["SPAM"] : []),
-    ...(toxicityScore >= 0.7 ? ["TOXIC_LANGUAGE"] : []),
+    ...(spamScore >= 0.5 ? ["SPAM"] : []),
+    ...(toxicityScore >= 0.6 ? ["TOXIC_LANGUAGE"] : []),
     ...(duplicateCandidates.length > 0 ? ["POSSIBLE_DUPLICATE"] : []),
   ];
 
   const category = input.category?.trim() || matchedCategory?.category || "UNCATEGORIZED";
-  const suggestedDepartment = input.department?.trim() || matchedCategory?.department || "Operations";
+  const suggestedDepartment = input.department?.trim() || matchedCategory?.department || "Campus Facilities & Maintenance";
   const aiPriority = matchedPriority?.priority ?? IssuePriority.MEDIUM;
+
+  let reasoning = `Local rules evaluated ${category} with ${aiPriority} priority.`;
+  if (spamScore > 0.8 && confidence < 0.3) {
+    reasoning = "Local analyzer flagged input as severe spam or gibberish.";
+  } else if (spamScore > 0.5 && confidence < 0.6) {
+    reasoning = "Local analyzer identified potential spam or low-confidence issue requiring review.";
+  }
 
   return {
     category,
@@ -108,9 +163,9 @@ export function analyzeIssueLocally(
     spamScore,
     toxicityScore,
     moderationFlags,
-    confidence: matchedCategory ? 0.86 : 0.58,
+    confidence,
     duplicateCandidates,
-    reasoning: `Local analyzer matched ${category} signals and assigned ${aiPriority} priority.`,
+    reasoning,
     modelUsed: "slashforge-local-rules-v1",
   };
 }
@@ -147,24 +202,47 @@ async function analyzeIssueWithGemini(
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: modelName });
 
-    const prompt = `Classify this campus maintenance issue and return ONLY a JSON object with these exact keys:
-- category (string): One of NETWORK, FACILITIES, SAFETY, ACADEMIC, UNCATEGORIZED
-- suggestedDepartment (string): The department that should handle this
-- priority (string): One of LOW, MEDIUM, HIGH, CRITICAL
-- severity (string): One of LOW, MEDIUM, HIGH, CRITICAL
-- confidence (number): 0-1 confidence score
-- spamScore (number): 0-1 spam likelihood
-- toxicityScore (number): 0-1 toxicity likelihood
-- moderationFlags (array of strings): e.g., ["SPAM", "TOXIC_LANGUAGE"] or []
-- reasoning (string): Brief explanation
+    const prompt = `You are the AI Quality & Triage Sentinel for a College Campus Infrastructure and Asset Issue Reporting Platform.
+Your task is to analyze submitted issues for validity, category, priority, spam likelihood, and authenticity.
 
-Issue details:
-Title: ${input.title}
-Description: ${input.description}
-User Category: ${input.category || "not specified"}
-User Department: ${input.department || "not specified"}
-Location: ${input.location || "not specified"}
-Duplicate Candidates: ${JSON.stringify(duplicateCandidates)}`;
+Carefully evaluate the following issue for authenticity and campus relevance:
+- Title: "${input.title}"
+- Description: "${input.description}"
+- User Category: "${input.category || "not specified"}"
+- User Department: "${input.department || "not specified"}"
+- Location: "${input.location || "not specified"}"
+- Known Potential Duplicates: ${JSON.stringify(duplicateCandidates)}
+
+CRITICAL EVALUATION RUBRIC:
+1. spamScore (float between 0.0 and 1.0):
+   - 0.81 to 1.00 (High / Severe Spam or Fabrication): Blatant spam, advertising, commercial promotions, crypto, casinos, external links, gibberish/keyboard mashing (e.g., 'asdfgh', 'test 12345'), fabricated stories, malicious text, trolling, or completely nonsensical input.
+   - 0.51 to 0.80 (Potential Spam / Ambiguous): Unclear/vague claims, rambling disconnected text, suspicious wording, joke submissions, or lacking authentic campus context.
+   - 0.00 to 0.50 (Legitimate): Genuine campus infrastructure, equipment, or facility problem.
+
+2. confidence (float between 0.0 and 1.0):
+   - 0.80 to 1.00 (High Confidence): Specific, coherent, well-described problem with clear physical location and actionable symptoms.
+   - 0.60 to 0.79 (Moderate Confidence): Plausible campus maintenance issue but with brief or basic detail.
+   - 0.30 to 0.59 (Low Confidence): Ambiguous or poorly worded, uncertain if it represents a real actionable issue.
+   - 0.00 to 0.29 (Very Low Confidence): Incoherent, nonsensical, fabricated, gibberish, or impossible to determine any legitimate maintenance issue.
+
+3. category: One of "Electrical & Power", "HVAC & Ventilation", "Plumbing & Water", "Lab Hardware & Computers", "Projectors & AV Systems", "Furniture & Desks", "General Infrastructure", "Network & IT", "Campus Safety", or "UNCATEGORIZED".
+4. priority: One of "LOW", "MEDIUM", "HIGH", "CRITICAL".
+5. severity: One of "LOW", "MEDIUM", "HIGH", "CRITICAL".
+6. toxicityScore: 0.0 to 1.0 likelihood of profanity, harassment, or abusive attacks.
+7. moderationFlags: Array of strings. Include "SPAM" if spamScore > 0.5. Include "TOXIC_LANGUAGE" if toxicityScore > 0.6. Include "POSSIBLE_FABRICATION" if spamScore > 0.8 and confidence < 0.3.
+
+Return ONLY a valid JSON object matching this exact format with NO surrounding markdown backticks or commentary:
+{
+  "category": "string",
+  "suggestedDepartment": "string",
+  "priority": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+  "severity": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+  "confidence": 0.95,
+  "spamScore": 0.02,
+  "toxicityScore": 0.0,
+  "moderationFlags": [],
+  "reasoning": "Clear explanation of the assessment and why these scores were assigned."
+}`;
 
     const result = await model.generateContent(prompt);
     const response = result.response;

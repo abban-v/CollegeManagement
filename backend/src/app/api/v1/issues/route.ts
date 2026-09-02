@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { CreateIssueSchema, IssuePriorityEnum, IssueStatusEnum } from "@/lib/validation/issue";
-import { issueService } from "@/modules/issues/service";
+import { issueService, FabricatedSpamError } from "@/modules/issues/service";
 import { getErrorMessage, successResponse, errorResponse, sendJSON } from "@/lib/api";
 import { withAuth } from "@/lib/auth";
 
@@ -79,6 +79,11 @@ export const POST = withAuth(async (request: NextRequest, _context, session) => 
     return sendJSON(successResponse(issue, 201));
   } catch (error: unknown) {
     console.error("Error creating issue:", error);
+
+    // Check if it's a FabricatedSpamError (Spam rating > 80% and confidence < 30%)
+    if (error instanceof FabricatedSpamError) {
+      return sendJSON(errorResponse(error.message, 422));
+    }
 
     // Check if it's a Zod validation error
     if (error instanceof ZodError) {

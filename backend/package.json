@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/auth-contract.test.mjs tests/api-contract.test.mjs tests/security.test.mjs"
+    "test": "node --test tests/auth-contract.test.mjs tests/api-contract.test.mjs tests/security.test.mjs tests/spam-moderation.test.mjs"
   },
   "dependencies": {
     "@google-cloud/storage": "^8.0.1",

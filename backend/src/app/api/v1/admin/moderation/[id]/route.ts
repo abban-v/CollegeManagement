@@ -29,3 +29,22 @@ export const PATCH = withRole("MODERATOR", "ADMIN")(async (
     return sendJSON(errorResponse(getErrorMessage(error, "Failed to moderate issue"), 500));
   }
 });
+
+export const DELETE = withRole("MODERATOR", "ADMIN")(async (
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+  session
+) => {
+  try {
+    const { id } = await params;
+    const deleted = await issueService.hardDeleteIssue(id, session.userId);
+
+    if (!deleted) {
+      return sendJSON(errorResponse("Issue not found", 404));
+    }
+
+    return sendJSON(successResponse({ message: "Issue permanently deleted", id }, 200));
+  } catch (error: unknown) {
+    return sendJSON(errorResponse(getErrorMessage(error, "Failed to delete issue"), 500));
+  }
+});

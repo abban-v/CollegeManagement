@@ -40,23 +40,29 @@ export default function HomePage() {
     }
   }, [currentUser, isLoadingAuth, router]);
 
-  // Calculate quick platform KPIs
-  const activeIssues = useMemo(
-    () => issues.filter((i) => i.moderationStatus !== 'REMOVED'),
+  // Publicly visible issues on the campus main page (excludes removed and under-review spam holds)
+  const publicIssues = useMemo(
+    () => issues.filter((i) => i.moderationStatus !== 'REMOVED' && i.moderationStatus !== 'UNDER_REVIEW'),
     [issues]
   );
 
-  const totalOpen = activeIssues.filter((i) => i.status !== 'VERIFIED' && i.status !== 'CLOSED').length;
-  const criticalCount = activeIssues.filter(
+  const totalOpen = publicIssues.filter((i) => i.status !== 'VERIFIED' && i.status !== 'CLOSED').length;
+  const criticalCount = publicIssues.filter(
     (i) => (i.priority === 'CRITICAL' || i.priority === 'HIGH') && i.status !== 'VERIFIED' && i.status !== 'CLOSED'
   ).length;
-  const inProgressCount = activeIssues.filter((i) => i.status === 'IN_PROGRESS' || i.status === 'RESOLUTION_SUBMITTED').length;
-  const resolvedCount = activeIssues.filter((i) => i.status === 'VERIFIED').length;
+  const inProgressCount = publicIssues.filter((i) => i.status === 'IN_PROGRESS' || i.status === 'RESOLUTION_SUBMITTED').length;
+  const resolvedCount = publicIssues.filter((i) => i.status === 'VERIFIED').length;
 
   // Filter and sort issues
   const filteredIssues = useMemo(() => {
     if (!currentUser) return [];
-    return activeIssues.filter((issue) => {
+
+    // Base issues pool: for "my_reported", author can see their own issues including those UNDER_REVIEW
+    const sourceIssues = tabView === 'my_reported'
+      ? issues.filter((i) => i.reporterId === currentUser.id && i.moderationStatus !== 'REMOVED')
+      : publicIssues;
+
+    return sourceIssues.filter((issue) => {
       // Tab view filter
       if (tabView === 'my_reported' && issue.reporterId !== currentUser.id) return false;
       if (tabView === 'my_affected' && !issue.affectedUserIds.includes(currentUser.id)) return false;
@@ -101,7 +107,7 @@ export default function HomePage() {
       // newest
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [activeIssues, filters, tabView, currentUser]);
+  }, [publicIssues, issues, filters, tabView, currentUser]);
 
   if (isLoadingAuth || !currentUser) {
     return (
@@ -207,7 +213,7 @@ export default function HomePage() {
               }`}
             >
               <Layers className="w-4 h-4" />
-              All Campus Issues ({activeIssues.length})
+              All Campus Issues ({publicIssues.length})
             </button>
 
             <button
@@ -219,7 +225,7 @@ export default function HomePage() {
               }`}
             >
               <UserCheck className="w-4 h-4" />
-              Reported by Me ({activeIssues.filter((i) => i.reporterId === currentUser.id).length})
+              Reported by Me ({issues.filter((i) => i.reporterId === currentUser.id && i.moderationStatus !== 'REMOVED').length})
             </button>
 
             <button
@@ -231,7 +237,7 @@ export default function HomePage() {
               }`}
             >
               <ThumbsUp className="w-4 h-4" />
-              I&apos;m Affected ({activeIssues.filter((i) => i.affectedUserIds.includes(currentUser.id)).length})
+              I&apos;m Affected ({publicIssues.filter((i) => i.affectedUserIds.includes(currentUser.id)).length})
             </button>
           </div>
         </div>

@@ -13,6 +13,18 @@ export const GET = withRole("MODERATOR", "ADMIN")(async () => {
             in: ["FLAGGED", "UNDER_REVIEW"],
           },
         },
+        include: {
+          reporter: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
+          analysis: true,
+          asset: true,
+        },
         orderBy: { updatedAt: "desc" },
       }),
     ]);

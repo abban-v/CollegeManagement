@@ -9,6 +9,7 @@ import {
   Plus,
   Upload,
   AlertTriangle,
+  AlertOctagon,
   HelpCircle,
   Lightbulb,
   MapPin,
@@ -51,6 +52,8 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
   const [occurredAt, setOccurredAt] = useState('');
   const [selectedImage, setSelectedImage] = useState<string>('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'diagnostics' | 'evidence'>('details');
 
   // Duplicate detection
@@ -73,37 +76,55 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) {
-      alert('Please provide a title and problem description.');
+      setErrorMessage('Please provide a title and problem description.');
       return;
     }
     if (!locationDetails.trim()) {
-      alert('Please provide the location / classroom / lab details (e.g. CS 201).');
+      setErrorMessage('Please provide the location / classroom / lab details (e.g. CS 201).');
       return;
     }
 
-    const created = await createIssue({
-      title,
-      description,
-      categoryId,
-      departmentId,
-      locationId: locationDetails,
-      locationDetails: locationDetails.trim(),
-      assetId: assetId || undefined,
-      priority,
-      possibleCause: possibleCause.trim() || undefined,
-      suggestedSolution: suggestedSolution.trim() || undefined,
-      occurredAt: occurredAt || undefined,
-      attachments: selectedImage ? [selectedImage] : [],
-    });
+    try {
+      setIsSubmitting(true);
+      setErrorMessage(null);
 
-    confetti({
-      particleCount: 60,
-      spread: 70,
-      origin: { y: 0.6 },
-    });
+      const created = await createIssue({
+        title,
+        description,
+        categoryId,
+        departmentId,
+        locationId: locationDetails,
+        locationDetails: locationDetails.trim(),
+        assetId: assetId || undefined,
+        priority,
+        possibleCause: possibleCause.trim() || undefined,
+        suggestedSolution: suggestedSolution.trim() || undefined,
+        occurredAt: occurredAt || undefined,
+        attachments: selectedImage ? [selectedImage] : [],
+      });
 
-    onClose();
-    if (onSuccess) onSuccess(created.id);
+      // Rule 1: Inform the user if the issue is kept for review
+      if (created.moderationStatus === 'UNDER_REVIEW') {
+        alert(
+          'Notice: Your issue may contain potential spam (spam rating > 50%, confidence < 60%) and has been kept for review by campus administrators before it can be displayed on the public feed.'
+        );
+      } else {
+        confetti({
+          particleCount: 60,
+          spread: 70,
+          origin: { y: 0.6 },
+        });
+      }
+
+      onClose();
+      if (onSuccess) onSuccess(created.id);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to submit problem report.';
+      setErrorMessage(msg);
+      setActiveTab('details');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -176,6 +197,24 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
           
+          {/* Submission Error Alert */}
+          {errorMessage && (
+            <div className="p-4 rounded-xl bg-rose-950/80 border border-rose-500/50 shadow-inner flex items-start gap-3">
+              <AlertOctagon className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="text-xs font-bold text-rose-200">Problem Report Not Accepted</h4>
+                <p className="text-xs text-rose-300 mt-1 leading-relaxed">{errorMessage}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setErrorMessage(null)}
+                className="text-rose-400 hover:text-white p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {/* TAB 1: DETAILS */}
           {activeTab === 'details' && (
             <div className="space-y-4">
@@ -480,9 +519,17 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
               </button>
               <button
                 type="submit"
-                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 shadow-lg shadow-purple-600/30 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                disabled={isSubmitting}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 shadow-lg shadow-purple-600/30 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Submit Problem Report
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Analyzing & Submitting...</span>
+                  </>
+                ) : (
+                  <span>Submit Problem Report</span>
+                )}
               </button>
             </div>
           </div>

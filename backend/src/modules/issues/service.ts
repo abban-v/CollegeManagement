@@ -11,6 +11,17 @@ import type {
 import { analyzeIssue, findDuplicateCandidates } from "@/modules/ai/analyzer";
 import { fileExists } from "@/lib/storage";
 
+export class FabricatedSpamError extends Error {
+  public status: number;
+  constructor(
+    message: string = "This issue is likely fabricated or spam (spam rating > 80%, confidence < 30%). Please word the issue differently and ensure better flow before submitting again."
+  ) {
+    super(message);
+    this.name = "FabricatedSpamError";
+    this.status = 422;
+  }
+}
+
 /**
  * IssueService handles all business logic for issues.
  *
@@ -28,31 +39,57 @@ export class IssueService {
   /**
    * Create a new issue
    *
-   * The issue is created first with a PENDING AI analysis status.
-   * AI analysis runs after the issue is committed, so failures
-   * do not prevent issue creation.
+   * Analyzes the issue for spam and confidence:
+   * 1. If spamScore > 0.8 AND confidence < 0.3: Reject immediately (deleted/not created).
+   * 2. If spamScore > 0.5 AND confidence < 0.6: Kept for review (UNDER_REVIEW) and not shown on public feed.
+   * 3. Otherwise: Normal issue creation.
    */
   async createIssue(
     input: CreateIssueInput,
     reporterId: string
   ) {
-    // Create the issue first with a default category, so the issue exists
-    // even if AI analysis fails. AI analysis runs after issue creation.
+    // 1. Run duplicate detection against recent issues
+    const recentIssues = await prisma.issue.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: { id: true, title: true, description: true },
+    });
+    const duplicateCandidates = findDuplicateCandidates(input, recentIssues);
+
+    // 2. Perform AI analysis for spam score, confidence, and triage
+    const analysis = await analyzeIssue(input, duplicateCandidates);
+
+    // Rule 3: If spam rating > 80% and confidence < 30%, reject and delete the issue
+    if (analysis.spamScore > 0.8 && analysis.confidence < 0.3) {
+      throw new FabricatedSpamError(
+        "This issue is likely fabricated or spam (spam rating > 80%, confidence < 30%). Please word the issue differently and ensure better flow before submitting again."
+      );
+    }
+
+    // Rule 1: If spam rating > 50% and confidence < 60%, keep for review and hide from main page
+    const isUnderReview = analysis.spamScore > 0.5 && analysis.confidence < 0.6;
+    const initialModerationStatus = isUnderReview
+      ? ModerationStatus.UNDER_REVIEW
+      : analysis.moderationFlags.length > 0
+      ? ModerationStatus.FLAGGED
+      : ModerationStatus.NORMAL;
+
+    // 3. Persist issue in database within transaction
     const issue = await prisma.$transaction(async (tx) => {
       const issue = await tx.issue.create({
         data: {
           title: input.title,
           description: input.description,
-          category: input.category || "UNCATEGORIZED",
-          department: input.department,
+          category: analysis.category || input.category || "UNCATEGORIZED",
+          department: analysis.suggestedDepartment || input.department,
           location: input.location,
           suspectedCause: input.suspectedCause,
           proposedSolution: input.proposedSolution,
           attachments: input.attachments || [],
           assetId: input.assetId,
           reporterId,
-          priority: IssuePriority.MEDIUM,
-          moderationStatus: ModerationStatus.NORMAL,
+          priority: analysis.aiPriority || IssuePriority.MEDIUM,
+          moderationStatus: initialModerationStatus,
           status: IssueStatus.REPORTED,
         },
       });
@@ -65,39 +102,48 @@ export class IssueService {
         }).catch(() => {});
       }
 
-      // Create a PENDING analysis record
+      // Create COMPLETED AI analysis record
       await tx.aIAnalysis.create({
         data: {
           issueId: issue.id,
-          category: input.category || "UNCATEGORIZED",
-          aiPriority: IssuePriority.MEDIUM,
-          severity: "MEDIUM",
-          spamScore: 0,
-          toxicityScore: 0,
-          moderationFlags: [],
-          confidence: 0,
-          duplicateCandidates: [],
-          analysisStatus: "PENDING",
+          category: analysis.category,
+          suggestedDepartment: analysis.suggestedDepartment,
+          aiPriority: analysis.aiPriority,
+          severity: analysis.severity,
+          spamScore: analysis.spamScore,
+          toxicityScore: analysis.toxicityScore,
+          moderationFlags: analysis.moderationFlags,
+          confidence: analysis.confidence,
+          duplicateCandidates: analysis.duplicateCandidates.map((c) => JSON.stringify(c)),
+          analysisStatus: "COMPLETED",
+          modelUsed: analysis.modelUsed,
+          reasoning: analysis.reasoning,
         },
       });
 
-      // Record the initial status in history
+      // Record initial status in history
       await tx.issueStatusHistory.create({
         data: {
           issueId: issue.id,
           fromStatus: IssueStatus.REPORTED,
           toStatus: IssueStatus.REPORTED,
-          reason: "Issue created",
+          reason: isUnderReview ? "Issue created (held for spam review)" : "Issue created",
         },
       });
 
-      // Create an audit log
+      // Create audit log
       await tx.auditLog.create({
         data: {
           issueId: issue.id,
           action: "CREATE",
           actor: reporterId,
-          details: JSON.stringify({ title: input.title, assetId: input.assetId }),
+          details: JSON.stringify({
+            title: input.title,
+            assetId: input.assetId,
+            spamScore: analysis.spamScore,
+            confidence: analysis.confidence,
+            moderationStatus: initialModerationStatus,
+          }),
         },
       });
 
@@ -109,20 +155,39 @@ export class IssueService {
         data: { issueId: issue.id, userId: reporterId },
       });
 
+      // If held for review, notify the reporter
+      if (isUnderReview) {
+        await tx.notification.create({
+          data: {
+            userId: reporterId,
+            type: "MODERATION",
+            title: "Issue Kept for Review",
+            body: "Your issue may contain potential spam (spam rating > 50%, confidence < 60%) and has been kept for review before being displayed publicly.",
+            issueId: issue.id,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            issueId: issue.id,
+            action: "HELD_FOR_REVIEW",
+            actor: "SYSTEM",
+            details: JSON.stringify({
+              spamScore: analysis.spamScore,
+              confidence: analysis.confidence,
+              reason: "Automated triage: spam > 50% and confidence < 60%",
+            }),
+          },
+        });
+      }
+
       return issue;
     });
-
-    // Run AI analysis immediately so the caller receives the enriched issue
-    try {
-      await this.runAnalysisAsync(issue.id, input);
-    } catch (error) {
-      console.warn("Inline AI analysis error:", error);
-    }
 
     const enriched = await prisma.issue.findUnique({
       where: { id: issue.id },
       include: {
-        reporter: { select: { id: true, name: true } },
+        reporter: { select: { id: true, name: true, role: true } },
         analysis: true,
         asset: true,
         followers: true,
@@ -137,76 +202,6 @@ export class IssueService {
     });
 
     return enriched || issue;
-  }
-
-  /**
-   * Run AI analysis for an issue and update the analysis record.
-   * This is called after issue creation so failures don't block the user.
-   */
-  private async runAnalysisAsync(issueId: string, input: CreateIssueInput) {
-    const recentIssues = await prisma.issue.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      select: { id: true, title: true, description: true },
-    });
-    const duplicateCandidates = findDuplicateCandidates(input, recentIssues);
-
-    try {
-      const analysis = await analyzeIssue(input, duplicateCandidates);
-
-      await prisma.$transaction(async (tx) => {
-        await tx.aIAnalysis.update({
-          where: { issueId },
-          data: {
-            category: analysis.category,
-            suggestedDepartment: analysis.suggestedDepartment,
-            aiPriority: analysis.aiPriority,
-            severity: analysis.severity,
-            spamScore: analysis.spamScore,
-            toxicityScore: analysis.toxicityScore,
-            moderationFlags: analysis.moderationFlags,
-            confidence: analysis.confidence,
-            duplicateCandidates: analysis.duplicateCandidates.map((candidate) => JSON.stringify(candidate)),
-            analysisStatus: "COMPLETED",
-            modelUsed: analysis.modelUsed,
-            reasoning: analysis.reasoning,
-          },
-        });
-
-        // Update issue priority and moderation status based on analysis
-        await tx.issue.update({
-          where: { id: issueId },
-          data: {
-            priority: analysis.aiPriority,
-            moderationStatus: analysis.moderationFlags.length > 0 ? ModerationStatus.FLAGGED : ModerationStatus.NORMAL,
-          },
-        });
-
-        await tx.auditLog.create({
-          data: {
-            issueId,
-            action: "AI_ANALYSIS_COMPLETED",
-            actor: "SYSTEM",
-            details: JSON.stringify({
-              category: analysis.category,
-              priority: analysis.aiPriority,
-              spamScore: analysis.spamScore,
-              toxicityScore: analysis.toxicityScore,
-              confidence: analysis.confidence,
-            }),
-          },
-        });
-      });
-    } catch (error) {
-      await prisma.aIAnalysis.update({
-        where: { issueId },
-        data: {
-          analysisStatus: "FAILED",
-          reasoning: error instanceof Error ? error.message : "Analysis failed",
-        },
-      });
-      throw error;
-    }
   }
 
   /**
@@ -291,9 +286,16 @@ export class IssueService {
     const where: Prisma.IssueWhereInput = {};
     if (status) where.status = status;
     if (priority) where.priority = priority;
-    if (reporterId) where.reporterId = reporterId;
-    if (!includeRemoved) {
-      where.NOT = { moderationStatus: "REMOVED" };
+    if (reporterId) {
+      where.reporterId = reporterId;
+      if (!includeRemoved) {
+        where.NOT = { moderationStatus: "REMOVED" };
+      }
+    } else {
+      // General public feed: exclude REMOVED and UNDER_REVIEW
+      where.moderationStatus = {
+        notIn: includeRemoved ? ["UNDER_REVIEW"] : ["REMOVED", "UNDER_REVIEW"],
+      };
     }
 
     const [issues, total] = await Promise.all([
@@ -905,17 +907,55 @@ export class IssueService {
         },
       });
 
+      let notifyTitle = `Issue Moderation: ${input.moderationStatus}`;
+      let notifyBody = input.reason || `Issue marked ${input.moderationStatus}.`;
+
+      if (input.moderationStatus === ModerationStatus.APPROVED) {
+        notifyTitle = "Issue Approved for Public Feed";
+        notifyBody = "Your issue has been reviewed and approved by administrators. It is now publicly visible on the campus feed.";
+      } else if (input.moderationStatus === ModerationStatus.REMOVED) {
+        notifyTitle = "Issue Removed by Moderator";
+        notifyBody = input.reason || "Your issue was removed by administrators due to policy violations or spam.";
+      }
+
       await tx.notification.create({
         data: {
           userId: updated.reporterId,
           type: "MODERATION",
-          title: "Moderation decision recorded",
-          body: input.reason || `Issue marked ${input.moderationStatus}.`,
+          title: notifyTitle,
+          body: notifyBody,
           issueId,
         },
       });
 
       return updated;
+    });
+  }
+
+  /**
+   * Permanently delete an issue from database (Admin action)
+   */
+  async hardDeleteIssue(id: string, actorId: string = "ADMIN") {
+    const issue = await prisma.issue.findUnique({
+      where: { id },
+      select: { id: true, reporterId: true, title: true },
+    });
+
+    if (!issue) return null;
+
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: issue.reporterId,
+          type: "MODERATION",
+          title: "Issue Deleted",
+          body: `Your issue "${issue.title.slice(0, 60)}" was permanently deleted by an administrator.`,
+        },
+      });
+    } catch {}
+
+    return await prisma.issue.delete({
+      where: { id },
     });
   }
 

@@ -15,7 +15,8 @@ import {
   Flag,
   ShieldAlert,
   Bot,
-  Loader2
+  Loader2,
+  Trash2
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -25,6 +26,7 @@ export default function AdminDashboardPage() {
     issues,
     departments,
     moderateIssue,
+    deleteIssuePermanent,
     currentUser,
     isLoadingAuth,
   } = useApp();
@@ -284,60 +286,147 @@ export default function AdminDashboardPage() {
 
         {/* TAB 2: MODERATION QUEUE */}
         {activeTab === 'moderation' && (
-          <div className="rounded-2xl glass-panel p-6 border border-indigo-500/20">
-            <h3 className="text-base font-bold text-white mb-2 flex items-center gap-2">
-              <ShieldAlert className="w-5 h-5 text-amber-400" />
-              Content Moderation & Policy Queue
-            </h3>
-            <p className="text-xs text-slate-400 mb-6">
-              Review flagged issues or user reports (spam, duplicate, inappropriate content).
-            </p>
+          <div className="rounded-2xl glass-panel p-6 border border-indigo-500/20 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-indigo-950/80">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5 text-amber-400" />
+                  Potential Spam & Moderation Review Queue
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Issues flagged as potential spam (spam rating &gt; 50%, confidence &lt; 60%) or reported by users. Review AI diagnostics to approve for public display or permanently delete.
+                </p>
+              </div>
+              <span className="text-xs px-3 py-1 rounded-full bg-amber-950/80 text-amber-300 border border-amber-500/30 font-semibold self-start sm:self-auto">
+                {flaggedIssues.length} Pending Review
+              </span>
+            </div>
 
             {flaggedIssues.length === 0 ? (
               <div className="py-12 text-center text-slate-400">
                 <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-emerald-400/60" />
-                <p className="text-xs">Moderation queue is clean. No content currently flagged.</p>
+                <p className="text-xs font-medium">Moderation queue is clean. No potential spam or flagged content pending review.</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {flaggedIssues.map((issue) => (
-                  <div key={issue.id} className="p-4 rounded-xl bg-[#090e24] border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <ModerationBadge status={issue.moderationStatus} />
-                        <span className="text-xs font-bold text-white">{issue.title}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 line-clamp-1">{issue.description}</p>
-                    </div>
+                {flaggedIssues.map((issue) => {
+                  const spamPct = issue.aiAnalysis ? Math.round(issue.aiAnalysis.spamScore * 100) : null;
+                  const confPct = issue.aiAnalysis ? Math.round(issue.aiAnalysis.confidence * 100) : null;
+                  const isSpamHold = issue.moderationStatus === 'UNDER_REVIEW';
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={() => {
-                          moderateIssue(issue.id, 'APPROVED', 'Approved by moderator');
-                          alert('Issue marked as approved.');
-                        }}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => {
-                          moderateIssue(issue.id, 'REMOVED', 'Removed under policy');
-                          alert('Issue removed.');
-                        }}
-                        className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-xs font-semibold text-white"
-                      >
-                        Remove
-                      </button>
-                      <Link
-                        href={`/issues/${issue.id}`}
-                        className="px-3 py-1.5 rounded-lg bg-slate-800 text-xs text-slate-300"
-                      >
-                        Inspect
-                      </Link>
+                  return (
+                    <div
+                      key={issue.id}
+                      className={`p-5 rounded-2xl border flex flex-col gap-4 transition-all ${
+                        isSpamHold
+                          ? 'bg-[#0a0d24] border-amber-500/40 shadow-[0_0_20px_-5px_rgba(245,158,11,0.15)]'
+                          : 'bg-[#090e24] border-indigo-500/30'
+                      }`}
+                    >
+                      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                        <div className="flex-1 space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <ModerationBadge status={issue.moderationStatus} />
+                            <PriorityBadge priority={issue.priority} />
+                            <span className="text-xs text-slate-400">ID: #{issue.id}</span>
+                            {isSpamHold && (
+                              <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-500/40 font-bold">
+                                Held for Spam Review
+                              </span>
+                            )}
+                          </div>
+
+                          <h4 className="text-base font-bold text-white">{issue.title}</h4>
+                          <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{issue.description}</p>
+
+                          <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-400 pt-1">
+                            <span>Reporter: <strong className="text-slate-200">{issue.reporterName}</strong> ({issue.reporterRole})</span>
+                            <span>&bull;</span>
+                            <span>Location: <strong className="text-slate-200">{issue.locationDetails || issue.locationId}</strong></span>
+                            <span>&bull;</span>
+                            <span>Submitted: {new Date(issue.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+
+                        {/* AI Diagnostic Badge Card */}
+                        {issue.aiAnalysis && (
+                          <div className="lg:max-w-xs w-full p-3.5 rounded-xl bg-purple-950/40 border border-purple-500/30 text-xs space-y-2">
+                            <div className="flex items-center justify-between font-semibold">
+                              <span className="text-purple-300 flex items-center gap-1">
+                                <Bot className="w-3.5 h-3.5" /> AI Diagnostic
+                              </span>
+                              <span className="text-[10px] text-slate-400">{issue.aiAnalysis.modelUsed || 'Gemini 2.5 Flash'}</span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-center">
+                              <div className={`p-1.5 rounded-lg border ${
+                                (spamPct ?? 0) > 50 ? 'bg-rose-950/50 border-rose-500/40 text-rose-300' : 'bg-emerald-950/50 border-emerald-500/40 text-emerald-300'
+                              }`}>
+                                <span className="text-[10px] block text-slate-400">Spam Score</span>
+                                <span className="font-bold text-xs">{spamPct !== null ? `${spamPct}%` : 'N/A'}</span>
+                              </div>
+
+                              <div className={`p-1.5 rounded-lg border ${
+                                (confPct ?? 0) < 60 ? 'bg-amber-950/50 border-amber-500/40 text-amber-300' : 'bg-indigo-950/50 border-indigo-500/40 text-indigo-300'
+                              }`}>
+                                <span className="text-[10px] block text-slate-400">Confidence</span>
+                                <span className="font-bold text-xs">{confPct !== null ? `${confPct}%` : 'N/A'}</span>
+                              </div>
+                            </div>
+
+                            {issue.aiAnalysis.reasoning && (
+                              <p className="text-[11px] text-slate-300 italic line-clamp-2">
+                                &quot;{issue.aiAnalysis.reasoning}&quot;
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Admin Decision Actions */}
+                      <div className="pt-3 border-t border-indigo-950/60 flex flex-wrap items-center justify-between gap-3">
+                        <span className="text-[11px] text-slate-400">
+                          {isSpamHold
+                            ? 'Action required: Decide whether to approve this issue for public display or delete it.'
+                            : 'Content reported by community members.'}
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={async () => {
+                              await moderateIssue(issue.id, 'APPROVED', 'Approved by administrator');
+                              alert(`Issue "${issue.title}" has been approved and is now displayed on the public campus feed.`);
+                            }}
+                            className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white shadow-md flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Allow / Display to Users
+                          </button>
+
+                          <button
+                            onClick={async () => {
+                              if (confirm(`Are you sure you want to permanently delete issue "${issue.title}"?`)) {
+                                await deleteIssuePermanent(issue.id);
+                                alert('Issue has been permanently deleted from the database.');
+                              }
+                            }}
+                            className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-bold text-white shadow-md flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete Issue
+                          </button>
+
+                          <Link
+                            href={`/issues/${issue.id}`}
+                            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition-colors"
+                          >
+                            Inspect Details
+                          </Link>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
