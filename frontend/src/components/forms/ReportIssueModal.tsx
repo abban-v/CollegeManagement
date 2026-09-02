@@ -106,7 +106,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
       // Rule 1: Inform the user if the issue is kept for review
       if (created.moderationStatus === 'UNDER_REVIEW') {
         alert(
-          'Notice: Your issue may contain potential spam (spam rating > 50%, confidence < 60%) and has been kept for review by campus administrators before it can be displayed on the public feed.'
+          'Notice: Your issue has been submitted and is currently held for review by campus administrators due to low confidence or potential spam. It will be published to the live campus feed once approved.'
         );
       } else {
         confetti({
@@ -197,6 +197,19 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
           
+          {/* Active AI Processing Banner */}
+          {isSubmitting && (
+            <div className="p-3.5 rounded-xl bg-purple-950/60 border border-purple-500/40 text-xs text-purple-200 flex items-center gap-3 animate-pulse">
+              <Sparkles className="w-4 h-4 text-purple-400 shrink-0 animate-spin" />
+              <div className="flex-1">
+                <p className="font-semibold text-white">AI Sentinel Inspection in Progress...</p>
+                <p className="text-[11px] text-purple-300/80 mt-0.5">
+                  Verifying problem symptoms, evaluating authenticity, and checking duplicate candidates.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Submission Error Alert */}
           {errorMessage && (
             <div

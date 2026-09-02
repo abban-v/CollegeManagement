@@ -264,6 +264,9 @@ async function analyzeIssueWithOpenRouter(
 
   const model = process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-exp:free";
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 7500);
+
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -272,11 +275,13 @@ async function analyzeIssueWithOpenRouter(
         "HTTP-Referer": "https://slashforge.cet.ac.in",
         "X-Title": "Slashforge Campus Issue Portal",
       },
+      signal: controller.signal,
       body: JSON.stringify({
         model,
         messages: [{ role: "user", content: prompt }],
       }),
     });
+    clearTimeout(timer);
 
     if (!response.ok) return null;
     const json = await response.json();
@@ -321,7 +326,7 @@ async function analyzeIssueWithGemini(
   fallback: IssueAnalysisResult
 ): Promise<IssueAnalysisResult> {
   const configuredModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-  const candidateModels = [configuredModel, "gemini-2.5-flash", "gemini-1.5-flash", "gemini-3.6-flash"].filter(
+  const candidateModels = [configuredModel, "gemini-3.6-flash"].filter(
     (v, i, a) => a.indexOf(v) === i
   );
 
@@ -417,7 +422,15 @@ Return ONLY a valid JSON object matching this exact format with NO surrounding m
   for (const modelName of candidateModels) {
     try {
       const model = genAI.getGenerativeModel({ model: modelName });
-      const result = await model.generateContent(prompt);
+      
+      // Execute with a comfortable 7.5s timeout per model attempt
+      const result = await Promise.race([
+        model.generateContent(prompt),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Gemini request timeout")), 7500)
+        ),
+      ]);
+
       const response = result.response;
       const text = response.text();
 
@@ -451,7 +464,7 @@ Return ONLY a valid JSON object matching this exact format with NO surrounding m
         modelUsed: modelName,
       };
     } catch {
-      // Try next candidate model
+      // Try next candidate model or fallback immediately
       continue;
     }
   }
