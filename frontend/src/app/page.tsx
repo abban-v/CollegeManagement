@@ -55,17 +55,17 @@ export default function HomePage() {
 
   // Filter and sort issues
   const filteredIssues = useMemo(() => {
-    if (!currentUser) return [];
-
     // Base issues pool: for "my_reported", author can see their own issues including those UNDER_REVIEW
-    const sourceIssues = tabView === 'my_reported'
+    const sourceIssues = (tabView === 'my_reported' && currentUser)
       ? issues.filter((i) => i.reporterId === currentUser.id && i.moderationStatus !== 'REMOVED')
+      : (tabView === 'my_affected' && currentUser)
+      ? publicIssues.filter((i) => i.affectedUserIds.includes(currentUser.id))
       : publicIssues;
 
     return sourceIssues.filter((issue) => {
       // Tab view filter
-      if (tabView === 'my_reported' && issue.reporterId !== currentUser.id) return false;
-      if (tabView === 'my_affected' && !issue.affectedUserIds.includes(currentUser.id)) return false;
+      if (tabView === 'my_reported' && (!currentUser || issue.reporterId !== currentUser.id)) return false;
+      if (tabView === 'my_affected' && (!currentUser || !issue.affectedUserIds.includes(currentUser.id))) return false;
 
       // Search filter
       if (filters.search) {
@@ -225,7 +225,7 @@ export default function HomePage() {
               }`}
             >
               <UserCheck className="w-4 h-4" />
-              Reported by Me ({issues.filter((i) => i.reporterId === currentUser.id && i.moderationStatus !== 'REMOVED').length})
+              Reported by Me ({currentUser ? issues.filter((i) => i.reporterId === currentUser.id && i.moderationStatus !== 'REMOVED').length : 0})
             </button>
 
             <button
@@ -237,7 +237,7 @@ export default function HomePage() {
               }`}
             >
               <ThumbsUp className="w-4 h-4" />
-              I&apos;m Affected ({publicIssues.filter((i) => i.affectedUserIds.includes(currentUser.id)).length})
+              I&apos;m Affected ({currentUser ? publicIssues.filter((i) => i.affectedUserIds.includes(currentUser.id)).length : 0})
             </button>
           </div>
         </div>

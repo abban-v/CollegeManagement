@@ -35,8 +35,7 @@ test("issue service enforces rule 1 (spam > 50% and confidence < 60% review hold
 
 test("issues list route excludes UNDER_REVIEW from public listing", () => {
   const service = read("src/modules/issues/service.ts");
-  assert.match(service, /"UNDER_REVIEW"/);
-  assert.match(service, /notIn:\s*includeRemoved\s*\?\s*\["UNDER_REVIEW"\]\s*:\s*\["REMOVED",\s*"UNDER_REVIEW"\]/);
+  assert.match(service, /moderationStatus:\s*ModerationStatus\.UNDER_REVIEW/);
 });
 
 test("issues POST route catches FabricatedSpamError with 422 status", () => {

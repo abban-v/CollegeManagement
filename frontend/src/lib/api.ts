@@ -161,9 +161,16 @@ function buildApiUrl(endpoint: string): string {
     return endpoint;
   }
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  let base = API_BASE_URL;
+  let base = API_BASE_URL.trim();
+  
+  if (base.endsWith('/api/v1')) {
+    return `${base}${cleanEndpoint}`;
+  }
+  if (base.endsWith('/api')) {
+    return `${base}/v1${cleanEndpoint}`;
+  }
   if (!base.includes('/api/v1')) {
-    base = `${base}/api/v1`;
+    return `${base}/api/v1${cleanEndpoint}`;
   }
   return `${base}${cleanEndpoint}`;
 }

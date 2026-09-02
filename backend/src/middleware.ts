@@ -9,19 +9,8 @@ export async function middleware(request: NextRequest) {
   const origin = request.headers.get("origin") || "";
   const configuredFrontend = process.env.FRONTEND_URL?.replace(/\/$/, "");
 
-  // Determine allowed origin for CORS (supports configured frontend, localhost, and Vercel deployments)
-  let allowedOrigin = configuredFrontend || origin || "http://localhost:3001";
-  if (origin) {
-    if (
-      origin === configuredFrontend ||
-      origin === "http://localhost:3000" ||
-      origin === "http://localhost:3001" ||
-      origin.endsWith(".vercel.app") ||
-      origin.includes("localhost")
-    ) {
-      allowedOrigin = origin;
-    }
-  }
+  // Determine allowed origin for CORS (dynamically allows origin for Vercel/localhost/custom domains)
+  const allowedOrigin = origin || configuredFrontend || "http://localhost:3001";
 
   const corsHeaders: Record<string, string> = {
     "Access-Control-Allow-Origin": allowedOrigin,

@@ -323,13 +323,15 @@ export class IssueService {
     if (reporterId) {
       where.reporterId = reporterId;
       if (!includeRemoved) {
-        where.NOT = { moderationStatus: "REMOVED" };
+        where.NOT = { moderationStatus: ModerationStatus.REMOVED };
       }
     } else {
-      // General public feed: exclude REMOVED and UNDER_REVIEW
-      where.moderationStatus = {
-        notIn: includeRemoved ? ["UNDER_REVIEW"] : ["REMOVED", "UNDER_REVIEW"],
-      };
+      if (!includeRemoved) {
+        where.NOT = [
+          { moderationStatus: ModerationStatus.REMOVED },
+          { moderationStatus: ModerationStatus.UNDER_REVIEW },
+        ];
+      }
     }
 
     const [issues, total] = await Promise.all([
