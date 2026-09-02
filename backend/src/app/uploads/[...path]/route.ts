@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
-import { getSession } from "@/lib/auth";
+import { bucket } from "@/lib/storage";
 
 const MIME_MAP: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -13,15 +13,10 @@ const MIME_MAP: Record<string, string> = {
 };
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
-    const session = await getSession(request);
-    if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
-
     const { path: segments } = await params;
     const relativePath = segments.join("/");
     
@@ -45,7 +40,7 @@ export async function GET(
       });
     } catch {}
 
-    // 2. Try /tmp uploads directory (for Vercel serverless functions)
+    // 2. Try /tmp uploads directory (for serverless environments)
     try {
       const tmpFilePath = path.join("/tmp", "uploads", safePath);
       const data = await fs.readFile(tmpFilePath);
@@ -57,6 +52,24 @@ export async function GET(
           "Cache-Control": "public, max-age=31536000, immutable",
         },
       });
+    } catch {}
+
+    // 3. Try GCS bucket if accessible
+    try {
+      const storageKey = safePath.startsWith("evidence/") ? safePath : `evidence/${safePath}`;
+      const gcsFile = bucket.file(storageKey);
+      const [exists] = await gcsFile.exists();
+      if (exists) {
+        const [data] = await gcsFile.download();
+        return new NextResponse(new Uint8Array(data), {
+          status: 200,
+          headers: {
+            "Content-Type": contentType,
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=31536000, immutable",
+          },
+        });
+      }
     } catch {}
 
     return new NextResponse("File not found", {

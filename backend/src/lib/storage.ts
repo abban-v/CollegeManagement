@@ -10,9 +10,21 @@ import { randomUUID } from "crypto";
  * - No hardcoded credentials or service account JSON files in source control
  */
 
-const storage = new Storage({
+const storageOptions: { projectId?: string; credentials?: Record<string, unknown> } = {
   projectId: process.env.GCS_PROJECT_ID,
-});
+};
+
+if (process.env.GCS_CREDENTIALS) {
+  try {
+    storageOptions.credentials = JSON.parse(process.env.GCS_CREDENTIALS);
+  } catch {
+    try {
+      storageOptions.credentials = JSON.parse(Buffer.from(process.env.GCS_CREDENTIALS, "base64").toString("utf8"));
+    } catch {}
+  }
+}
+
+const storage = new Storage(storageOptions);
 
 const bucketName = process.env.GCS_BUCKET_NAME || "slashforge-bucket";
 const bucket = storage.bucket(bucketName);
@@ -121,7 +133,7 @@ import fs from "fs/promises";
 import path from "path";
 
 /**
- * Upload a file to Google Cloud Storage (with local disk fallback for development)
+ * Upload a file to Google Cloud Storage (with durable fallback for development and serverless)
  *
  * Security:
  * - Storage key is server-generated (UUID-based), not client-controlled
@@ -163,26 +175,33 @@ export async function uploadFile(options: UploadOptions): Promise<UploadResult> 
       fileSize: data.length,
     };
   } catch (gcsError) {
-    console.warn("GCS upload failed, saving to local/tmp storage:", gcsError);
+    console.warn("GCS upload failed, falling back to durable upload storage:", gcsError);
 
     const baseFilename = path.basename(storageKey);
-    const baseUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
-    let publicUrl = `${baseUrl}/uploads/evidence/${baseFilename}`;
+    const host = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.NEXT_PUBLIC_API_BASE_URL || process.env.API_URL || "http://localhost:3000";
+
+    // In serverless environments where local disk is read-only / ephemeral,
+    // Base64 Data URL is completely self-contained and guaranteed to work in any browser without disk loss.
+    let publicUrl = `data:${mimeType};base64,${data.toString("base64")}`;
 
     try {
       const localDir = path.join(process.cwd(), "public", "uploads", "evidence");
       await fs.mkdir(localDir, { recursive: true });
       const localFilePath = path.join(localDir, baseFilename);
       await fs.writeFile(localFilePath, data);
+
+      if (process.env.NODE_ENV !== "production") {
+        publicUrl = `${host}/uploads/evidence/${baseFilename}`;
+      }
     } catch {
       try {
         const tmpDir = path.join("/tmp", "uploads", "evidence");
         await fs.mkdir(tmpDir, { recursive: true });
         const tmpFilePath = path.join(tmpDir, baseFilename);
         await fs.writeFile(tmpFilePath, data);
-      } catch {
-        publicUrl = `data:${mimeType};base64,${data.toString("base64")}`;
-      }
+      } catch {}
     }
 
     return {
