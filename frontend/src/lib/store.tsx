@@ -124,7 +124,7 @@ function findDepartmentIdentifier(nameOrId?: string): string {
 }
 
 // Helper to adapt backend issue object to frontend Issue type
-function mapBackendIssueToFrontend(item: ApiIssue | Record<string, unknown>): Issue {
+export function mapBackendIssueToFrontend(item: ApiIssue | Record<string, unknown>): Issue {
   const categoryId = findCategoryIdentifier((item.category as string) || (item.categoryId as string));
   const departmentId = findDepartmentIdentifier((item.department as string) || (item.departmentId as string));
 
@@ -927,19 +927,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const moderateIssue = async (issueId: string, moderationStatus: ModerationStatus, reason?: string) => {
-    setIssues((prev) =>
-      prev.map((i) => (i.id === issueId ? { ...i, moderationStatus } : i))
-    );
-
     try {
-      await apiClient.moderateIssue(issueId, moderationStatus, reason);
-    } catch (e) {}
+      const res = await apiClient.moderateIssue(issueId, moderationStatus, reason);
+      if (res.data?.issue) {
+        const mapped = mapBackendIssueToFrontend(res.data.issue as Record<string, unknown>);
+        setIssues((prev) => [mapped, ...prev.filter((i) => i.id !== issueId)]);
+      } else {
+        setIssues((prev) =>
+          prev.map((i) => (i.id === issueId ? { ...i, moderationStatus } : i))
+        );
+      }
+      await refreshIssues();
+    } catch (e) {
+      console.warn('Failed to moderate issue:', e);
+      setIssues((prev) =>
+        prev.map((i) => (i.id === issueId ? { ...i, moderationStatus } : i))
+      );
+    }
   };
 
   const deleteIssuePermanent = async (issueId: string) => {
     setIssues((prev) => prev.filter((i) => i.id !== issueId));
     try {
       await apiClient.deleteModeratedIssue(issueId);
+      await refreshIssues();
     } catch (e) {
       console.warn('Permanent delete error:', e);
     }

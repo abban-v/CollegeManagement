@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useApp } from '@/lib/store';
+import { useApp, mapBackendIssueToFrontend } from '@/lib/store';
 import { apiClient } from '@/lib/api';
-import { UserRole } from '@/lib/types';
+import { UserRole, Issue } from '@/lib/types';
 import { Navbar } from '@/components/layout/Navbar';
 import { StatusBadge, PriorityBadge, ModerationBadge } from '@/components/ui/Badge';
 import { ResolutionProofModal } from '@/components/issues/ResolutionProofModal';
@@ -47,12 +47,36 @@ export default function AdminDashboardPage() {
     departments,
     moderateIssue,
     deleteIssuePermanent,
+    refreshIssues,
     currentUser,
     isLoadingAuth,
   } = useApp();
   
   const [activeTab, setActiveTab] = useState<'workorders' | 'moderation' | 'ai_insights' | 'users'>('workorders');
   const [selectedIssueForProof, setSelectedIssueForProof] = useState<{ id: string; title: string } | null>(null);
+
+  // Moderation Queue State (directly from backend)
+  const [moderationList, setModerationList] = useState<Issue[]>([]);
+  const [isLoadingModeration, setIsLoadingModeration] = useState(false);
+
+  const fetchModeration = useCallback(async () => {
+    setIsLoadingModeration(true);
+    try {
+      const res = await apiClient.getModerationQueue();
+      if (res.data?.flaggedIssues) {
+        const mapped = (res.data.flaggedIssues as unknown as Array<Record<string, unknown>>).map(mapBackendIssueToFrontend);
+        setModerationList(mapped);
+      }
+    } catch {
+      console.warn('Failed to load moderation queue');
+    } finally {
+      setIsLoadingModeration(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchModeration();
+  }, [fetchModeration, activeTab]);
 
   // User Management State
   const [usersList, setUsersList] = useState<AdminUserRecord[]>([]);
@@ -124,7 +148,17 @@ export default function AdminDashboardPage() {
   const activeIssues = issues.filter((i) => i.moderationStatus !== 'REMOVED');
   const criticalIssues = activeIssues.filter((i) => (i.priority === 'CRITICAL' || i.priority === 'HIGH') && i.status !== 'VERIFIED' && i.status !== 'CLOSED');
   const verifiedIssues = activeIssues.filter((i) => i.status === 'VERIFIED');
-  const flaggedIssues = issues.filter((i) => i.moderationStatus === 'FLAGGED' || i.moderationStatus === 'UNDER_REVIEW');
+  
+  // Combine server-fetched moderation queue with active in-memory flagged issues
+  const flaggedIssues = React.useMemo(() => {
+    const combined = [...moderationList];
+    for (const iss of issues) {
+      if ((iss.moderationStatus === 'FLAGGED' || iss.moderationStatus === 'UNDER_REVIEW') && !combined.some((c) => c.id === iss.id)) {
+        combined.push(iss);
+      }
+    }
+    return combined.filter((i) => i.moderationStatus === 'FLAGGED' || i.moderationStatus === 'UNDER_REVIEW');
+  }, [moderationList, issues]);
 
   return (
     <div className="min-h-screen bg-[#060813] text-slate-100 flex flex-col relative overflow-hidden">
@@ -459,6 +493,9 @@ export default function AdminDashboardPage() {
                           <button
                             onClick={async () => {
                               await moderateIssue(issue.id, 'APPROVED', 'Approved by administrator');
+                              setModerationList((prev) => prev.filter((i) => i.id !== issue.id));
+                              await fetchModeration();
+                              await refreshIssues();
                               alert(`Issue "${issue.title}" has been approved and is now displayed on the public campus feed.`);
                             }}
                             className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white shadow-md flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -471,6 +508,9 @@ export default function AdminDashboardPage() {
                             onClick={async () => {
                               if (confirm(`Are you sure you want to permanently delete issue "${issue.title}"?`)) {
                                 await deleteIssuePermanent(issue.id);
+                                setModerationList((prev) => prev.filter((i) => i.id !== issue.id));
+                                await fetchModeration();
+                                await refreshIssues();
                                 alert('Issue has been permanently deleted from the database.');
                               }
                             }}

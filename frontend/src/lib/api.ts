@@ -412,7 +412,7 @@ export const apiClient = {
   },
 
   async moderateIssue(issueId: string, moderationStatus: string, reason?: string) {
-    return apiFetch<Issue>(`/admin/moderation/${issueId}`, {
+    return apiFetch<{ issue: Record<string, unknown> }>(`/admin/moderation/${issueId}`, {
       method: 'PATCH',
       body: JSON.stringify({ moderationStatus, reason }),
     });

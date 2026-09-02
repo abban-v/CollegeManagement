@@ -950,6 +950,32 @@ export class IssueService {
       const updated = await tx.issue.update({
         where: { id: issueId },
         data: { moderationStatus: input.moderationStatus },
+        include: {
+          reporter: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
+          analysis: true,
+          asset: true,
+          followers: true,
+          participants: true,
+          resolutions: {
+            orderBy: { createdAt: "desc" },
+            include: {
+              evidenceImages: true,
+              resolvedBy: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
       });
 
       await tx.auditLog.create({
