@@ -180,18 +180,32 @@ function buildApiUrl(endpoint: string): string {
 /**
  * Normalizes any image URL (local upload, relative path, base64 data URI, or external GCS URL)
  * into a valid browser-loadable image source.
+ * Automatically rewrites legacy localhost URLs to the active API origin in production.
  */
 export function formatImageUrl(url?: string): string {
   if (!url) return '';
-  if (
-    url.startsWith('http://') ||
-    url.startsWith('https://') ||
-    url.startsWith('data:') ||
-    url.startsWith('blob:')
-  ) {
+  
+  // 1. Data URLs and Blob URLs load directly in any browser
+  if (url.startsWith('data:') || url.startsWith('blob:')) {
     return url;
   }
-  const apiOrigin = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+
+  const apiOrigin = typeof window !== 'undefined' && API_BASE_URL.startsWith('/')
+    ? window.location.origin
+    : API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+
+  // 2. Legacy / development localhost URLs stored in database -> rewrite to active API origin
+  if (url.includes('localhost:3000') || url.includes('localhost:3001') || url.includes('127.0.0.1:3000')) {
+    const pathPart = url.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/, '');
+    return `${apiOrigin}${pathPart.startsWith('/') ? '' : '/'}${pathPart}`;
+  }
+
+  // 3. External cloud URLs (GCS, Supabase, Cloudinary, AWS S3)
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+
+  // 4. Relative paths
   const cleanUrl = url.startsWith('/') ? url : `/${url}`;
   if (cleanUrl.startsWith('/uploads/') || cleanUrl.startsWith('/api/v1/storage/')) {
     return `${apiOrigin}${cleanUrl}`;
