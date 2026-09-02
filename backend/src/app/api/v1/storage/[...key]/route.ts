@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
 import { bucket } from "@/lib/storage";
+import { getSession } from "@/lib/auth";
 
 const MIME_MAP: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -13,10 +14,15 @@ const MIME_MAP: Record<string, string> = {
 };
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ key: string[] }> }
 ) {
   try {
+    const session = await getSession(request);
+    if (!session) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
     const { key: segments } = await params;
     const storageKey = segments.join("/");
     
