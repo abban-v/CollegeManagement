@@ -262,10 +262,18 @@ async function analyzeIssueWithOpenRouter(
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey || apiKey === "your_openrouter_api_key_here") return null;
 
-  const model = process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-exp:free";
+  const configuredModel = process.env.OPENROUTER_MODEL || "nvidia/nemotron-3.5-lightning:free";
+  const modelList = [
+    configuredModel,
+    "nvidia/nemotron-3.5-lightning:free",
+    "google/gemma-4-31b-it:free",
+  ].filter((v, i, a) => a.indexOf(v) === i).slice(0, 3);
+
+  console.log(`[OpenRouter AI Sentinel] Initiating issue triage analysis with models: ${modelList.join(", ")}`);
+
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 7500);
+    const timer = setTimeout(() => controller.abort(), 12000);
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -277,23 +285,37 @@ async function analyzeIssueWithOpenRouter(
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model,
+        models: modelList,
         messages: [{ role: "user", content: prompt }],
       }),
     });
     clearTimeout(timer);
 
-    if (!response.ok) return null;
-    const json = await response.json();
-    const content = json.choices?.[0]?.message?.content;
-    if (!content) return null;
+    if (!response.ok) {
+      const errText = await response.text().catch(() => "");
+      console.warn(`[OpenRouter AI Sentinel] HTTP ${response.status} ${response.statusText}:`, errText);
+      return null;
+    }
 
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
+    const json = await response.json();
+    const message = json.choices?.[0]?.message;
+    const rawContent = message?.content || message?.reasoning || "";
+    
+    // Strip thinking tags if present
+    const cleanContent = rawContent.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+    const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.warn("[OpenRouter AI Sentinel] No JSON object found in response:", cleanContent);
+      return null;
+    }
 
     const parsed = JSON.parse(jsonMatch[0]);
     const aiPriority = normalizePriority(parsed.priority);
     const isDuplicate = typeof parsed.isDuplicate === "boolean" ? parsed.isDuplicate : fallback.isDuplicate;
+    const modelUsed = json.model || configuredModel;
+
+    console.log(`[OpenRouter AI Sentinel] Analysis complete via ${modelUsed} -> Spam: ${parsed.spamScore}, Confidence: ${parsed.confidence}, Category: ${parsed.category}`);
 
     return {
       category: typeof parsed.category === "string" ? parsed.category : fallback.category,
@@ -312,9 +334,11 @@ async function analyzeIssueWithOpenRouter(
       duplicateOfIssueId: typeof parsed.duplicateOfIssueId === "string" ? parsed.duplicateOfIssueId : fallback.duplicateOfIssueId,
       duplicateIssueTitle: typeof parsed.duplicateIssueTitle === "string" ? parsed.duplicateIssueTitle : fallback.duplicateIssueTitle,
       reasoning: typeof parsed.reasoning === "string" ? parsed.reasoning : fallback.reasoning,
-      modelUsed: `openrouter/${model}`,
+      modelUsed: `openrouter/${modelUsed}`,
     };
-  } catch {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[OpenRouter AI Sentinel] Request failed: ${msg}`);
     return null;
   }
 }
