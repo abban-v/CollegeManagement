@@ -251,7 +251,8 @@ function normalizePriority(value: unknown): IssuePriority {
 
 function clampScore(value: unknown, fallback: number) {
   if (typeof value !== "number" || Number.isNaN(value)) return fallback;
-  return Math.min(1, Math.max(0, value));
+  const num = value > 1 ? value / 100 : value;
+  return Math.min(1, Math.max(0, num));
 }
 
 async function analyzeIssueWithOpenRouter(
@@ -273,7 +274,7 @@ async function analyzeIssueWithOpenRouter(
 
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 25000);
+    const timer = setTimeout(() => controller.abort(), 15000);
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -287,6 +288,7 @@ async function analyzeIssueWithOpenRouter(
       body: JSON.stringify({
         model: configuredModel,
         models: modelList,
+        reasoning: { max_tokens: 0 },
         messages: [{ role: "user", content: prompt }],
       }),
     });
