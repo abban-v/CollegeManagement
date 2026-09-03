@@ -54,6 +54,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [serverDuplicate, setServerDuplicate] = useState<{ id: string; title: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'diagnostics' | 'evidence'>('details');
 
   // Duplicate detection
@@ -121,6 +122,19 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to submit problem report.';
       setErrorMessage(msg);
+      if (
+        err &&
+        typeof err === 'object' &&
+        'duplicateOfIssueId' in err &&
+        (err as { duplicateOfIssueId?: string }).duplicateOfIssueId
+      ) {
+        setServerDuplicate({
+          id: (err as { duplicateOfIssueId?: string }).duplicateOfIssueId!,
+          title: (err as { duplicateIssueTitle?: string }).duplicateIssueTitle || 'Existing Problem Ticket',
+        });
+      } else {
+        setServerDuplicate(null);
+      }
       setActiveTab('details');
     } finally {
       setIsSubmitting(false);
@@ -241,26 +255,32 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
                 >
                   {errorMessage}
                 </p>
-                {errorMessage.includes('Issue already exists') && potentialDuplicates.length > 0 && (
-                  <div className="mt-3 flex items-center gap-2">
+                {errorMessage.includes('Issue already exists') && (serverDuplicate || potentialDuplicates.length > 0) && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => {
-                        toggleAffected(potentialDuplicates[0].id);
-                        alert("You've upvoted the existing issue (added to Affected users)!");
-                        onClose();
+                        const targetId = serverDuplicate?.id || potentialDuplicates[0]?.id;
+                        if (targetId) {
+                          toggleAffected(targetId);
+                          alert("You've upvoted the existing issue (added to Affected users)!");
+                          onClose();
+                        }
                       }}
-                      className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                      className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
                     >
                       <ThumbsUp className="w-3.5 h-3.5" />
-                      Upvote Previous Issue Now
+                      {serverDuplicate?.title ? `Upvote: ${serverDuplicate.title.slice(0, 45)}` : 'Upvote Previous Issue Now'}
                     </button>
                   </div>
                 )}
               </div>
               <button
                 type="button"
-                onClick={() => setErrorMessage(null)}
+                onClick={() => {
+                  setErrorMessage(null);
+                  setServerDuplicate(null);
+                }}
                 className={`hover:text-white p-1 ${
                   errorMessage.includes('Issue already exists') ? 'text-amber-400' : 'text-rose-400'
                 }`}

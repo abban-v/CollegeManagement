@@ -541,7 +541,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     const errorMessage = backendRes.error || 'Failed to submit issue to server.';
-    throw new Error(errorMessage);
+    const err = new Error(errorMessage) as Error & { duplicateOfIssueId?: string; duplicateIssueTitle?: string };
+    err.duplicateOfIssueId = backendRes.duplicateOfIssueId;
+    err.duplicateIssueTitle = backendRes.duplicateIssueTitle;
+    throw err;
   };
 
   const toggleAffected = async (issueId: string) => {
@@ -776,6 +779,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (uploadId) {
         const res = await apiClient.submitResolution(issueId, notes, [uploadId]);
         if (res.data) {
+          refreshIssues();
           return true;
         }
         console.warn('Backend submitResolution via uploadId error, trying fallback:', res.error);
@@ -783,6 +787,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       const res = await apiClient.transitionStatus(issueId, 'RESOLUTION_SUBMITTED', notes);
       if (res.data) {
+        refreshIssues();
         return true;
       }
 

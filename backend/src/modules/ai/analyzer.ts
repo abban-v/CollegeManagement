@@ -273,7 +273,7 @@ async function analyzeIssueWithOpenRouter(
 
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000);
+    const timer = setTimeout(() => controller.abort(), 25000);
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -285,6 +285,7 @@ async function analyzeIssueWithOpenRouter(
       },
       signal: controller.signal,
       body: JSON.stringify({
+        model: configuredModel,
         models: modelList,
         messages: [{ role: "user", content: prompt }],
       }),

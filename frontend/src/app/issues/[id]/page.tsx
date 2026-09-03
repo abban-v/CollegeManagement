@@ -373,6 +373,7 @@ export default function IssueDetailPage() {
                       src={formatImageUrl(issue.resolutionProof.imageUrl)}
                       alt="Resolution Proof"
                       fill
+                      unoptimized
                       className="object-cover"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-2">
@@ -473,7 +474,7 @@ export default function IssueDetailPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {issue.attachments.map((imgUrl, idx) => (
                       <div key={idx} className="relative rounded-xl overflow-hidden border border-indigo-950/80 aspect-video">
-                        <Image src={formatImageUrl(imgUrl)} alt="Evidence" fill className="object-cover" />
+                        <Image src={formatImageUrl(imgUrl)} alt="Evidence" fill unoptimized className="object-cover" />
                       </div>
                     ))}
                   </div>

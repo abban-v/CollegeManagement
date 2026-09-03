@@ -87,3 +87,5 @@ export const POST = withAuth(async (
     );
   }
 });
+
+export const PATCH = POST;

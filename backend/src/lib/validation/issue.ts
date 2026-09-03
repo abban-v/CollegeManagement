@@ -41,7 +41,10 @@ export const CreateIssueSchema = z.object({
   suspectedCause: z.string().optional(),
   proposedSolution: z.string().optional(),
   attachments: z.array(z.string()).optional(),
-  assetId: z.string().optional(),
+  assetId: z
+    .string()
+    .optional()
+    .transform((val) => (val && val.trim() ? val.trim() : undefined)),
 });
 
 export type CreateIssueInput = z.infer<typeof CreateIssueSchema>;

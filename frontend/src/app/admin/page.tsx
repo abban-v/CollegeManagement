@@ -1077,7 +1077,10 @@ export default function AdminDashboardPage() {
           issueId={selectedIssueForProof.id}
           issueTitle={selectedIssueForProof.title}
           isOpen={true}
-          onClose={() => setSelectedIssueForProof(null)}
+          onClose={() => {
+            setSelectedIssueForProof(null);
+            refreshIssues();
+          }}
         />
       )}
     </div>

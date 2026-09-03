@@ -120,7 +120,7 @@ export class IssueService {
           suspectedCause: input.suspectedCause,
           proposedSolution: input.proposedSolution,
           attachments: input.attachments || [],
-          assetId: input.assetId,
+          assetId: input.assetId && input.assetId.trim() ? input.assetId.trim() : null,
           reporterId,
           priority: analysis.aiPriority || IssuePriority.MEDIUM,
           moderationStatus: initialModerationStatus,
@@ -252,6 +252,7 @@ export class IssueService {
           select: {
             id: true,
             name: true,
+            role: true,
           },
         },
         analysis: true,
@@ -268,6 +269,7 @@ export class IssueService {
               select: {
                 id: true,
                 name: true,
+                role: true,
               },
             },
           },
@@ -345,6 +347,7 @@ export class IssueService {
             select: {
               id: true,
               name: true,
+              role: true,
             },
           },
           analysis: true,
@@ -593,6 +596,7 @@ export class IssueService {
             select: {
               id: true,
               name: true,
+              role: true,
             },
           },
         },

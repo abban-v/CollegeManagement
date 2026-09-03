@@ -251,7 +251,7 @@ export default function AssetsPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         {getStatusBadge(asset.status)}
-                        {isOfficialOrAdmin && (
+                        {currentUser.role === 'ADMIN' && (
                           <button
                             type="button"
                             onClick={() => {

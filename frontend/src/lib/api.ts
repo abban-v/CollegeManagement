@@ -14,6 +14,9 @@ export interface ApiResponse<T> {
   data: T | null;
   error: string | null;
   status: number;
+  code?: string;
+  duplicateOfIssueId?: string;
+  duplicateIssueTitle?: string;
 }
 
 /** Shape of a user returned by auth endpoints */
