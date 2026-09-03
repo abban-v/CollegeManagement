@@ -224,8 +224,27 @@ export function mapBackendIssueToFrontend(item: ApiIssue | Record<string, unknow
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return null;
+  });
+
+  const [isLoadingAuth, setIsLoadingAuth] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const token = localStorage.getItem('slashforge_auth_token');
+        const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+        if (token && saved) return false;
+      } catch {}
+    }
+    return true;
+  });
+
   const [issues, setIssues] = useState<Issue[]>([]);
   const [comments, setComments] = useState<Record<string, IssueComment[]>>({});
   const [statusHistory, setStatusHistory] = useState<Record<string, IssueStatusHistory[]>>({});
@@ -329,7 +348,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return undefined;
   }, []);
 
-  // Initialize auth session and live database data
+  // Initialize auth session and live database data in parallel
   useEffect(() => {
     async function init() {
       try {
@@ -340,10 +359,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           });
         }
 
-        // 1. Try checking real backend session
-        const sessionRes = await apiClient.getSession();
-        if (sessionRes.data?.user) {
-          const u = sessionRes.data.user;
+        // Fire all initial requests concurrently in parallel
+        const [sessionRes] = await Promise.allSettled([
+          apiClient.getSession(),
+          refreshIssues(),
+          refreshAssets(),
+          apiClient.getNotifications().then((notifRes) => {
+            if (notifRes.data?.notifications && Array.isArray(notifRes.data.notifications)) {
+              setNotifications(notifRes.data.notifications.map((n: Record<string, unknown>) => ({
+                id: n.id as string,
+                userId: (n.userId as string) || '',
+                title: (n.title as string) || 'Notification',
+                body: (n.body as string) || (n.message as string) || '',
+                type: (n.type as AppNotification['type']) || 'STATUS_CHANGED',
+                read: Boolean(n.read || n.readAt),
+                issueId: (n.issueId as string) || undefined,
+                createdAt: (n.createdAt as string) || new Date().toISOString(),
+              })));
+            }
+          }).catch(() => {}),
+        ]);
+
+        if (sessionRes.status === 'fulfilled' && sessionRes.value.data?.user) {
+          const u = sessionRes.value.data.user;
           const userObj: User = {
             id: u.id,
             email: u.email,
@@ -356,37 +394,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           try {
             localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(userObj));
           } catch {}
-        } else {
-          // Fallback to saved user in storage
-          const savedUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-          if (savedUser) {
-            try { setCurrentUser(JSON.parse(savedUser)); } catch {}
-          }
-        }
-
-        // 2. Fetch live data from PostgreSQL backend
-        await Promise.allSettled([
-          refreshIssues(),
-          refreshAssets(),
-        ]);
-
-        // 3. Fetch notifications
-        try {
-          const notifRes = await apiClient.getNotifications();
-          if (notifRes.data?.notifications && Array.isArray(notifRes.data.notifications)) {
-            setNotifications(notifRes.data.notifications.map((n: Record<string, unknown>) => ({
-              id: n.id as string,
-              userId: (n.userId as string) || '',
-              title: (n.title as string) || 'Notification',
-              body: (n.body as string) || (n.message as string) || '',
-              type: (n.type as AppNotification['type']) || 'STATUS_CHANGED',
-              read: Boolean(n.read || n.readAt),
-              issueId: (n.issueId as string) || undefined,
-              createdAt: (n.createdAt as string) || new Date().toISOString(),
-            })));
-          }
-        } catch (e) {
-          console.warn('Failed to fetch notifications:', e);
+        } else if (sessionRes.status === 'fulfilled' && sessionRes.value.status === 401) {
+          // Explicitly expired or revoked session
+          setCurrentUser(null);
+          try {
+            localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+            localStorage.removeItem('slashforge_auth_token');
+          } catch {}
         }
       } catch (e) {
         console.warn('Initial session loading fallback:', e);

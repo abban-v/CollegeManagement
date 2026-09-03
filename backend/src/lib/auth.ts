@@ -135,7 +135,8 @@ export async function getSession(request?: NextRequest): Promise<AuthSession | n
       return null;
     }
 
-    await prisma.session.update({
+    // Non-blocking background touch of session timestamp
+    prisma.session.update({
       where: { id: session.id },
       data: { lastUsedAt: new Date() },
     }).catch(() => {});
