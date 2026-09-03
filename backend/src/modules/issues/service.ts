@@ -1029,7 +1029,7 @@ export class IssueService {
           userId: issue.reporterId,
           type: "MODERATION",
           title: "Issue Deleted",
-          body: `Your issue "${issue.title.slice(0, 60)}" was permanently deleted by administrator ${actorId}.`,
+          body: `Your issue "${issue.title.slice(0, 60)}" was permanently deleted by staff (${actorId}).`,
         },
       });
     } catch {}

@@ -402,22 +402,22 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
                 </select>
               </div>
 
-              {/* Optional Asset / Equipment Linkage */}
+              {/* Optional Asset / Equipment Link */}
               {assets.length > 0 && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
-                    <span>Linked Equipment / Asset (Optional)</span>
-                    <span className="text-[10px] text-slate-400">Lab PCs, Projectors, HVAC</span>
+                    <span>Linked Campus Equipment (Optional)</span>
+                    <span className="text-[10px] text-slate-400">Projector, AC, Lab Hardware</span>
                   </label>
                   <select
                     value={assetId}
                     onChange={(e) => setAssetId(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl bg-[#070a1a] border border-indigo-950 text-xs text-slate-200 focus:border-purple-500 outline-none"
                   >
-                    <option value="">-- No Specific Asset / General Facility --</option>
-                    {assets.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        [{a.assetTag}] {a.name} ({a.locationId || 'Main Campus'})
+                    <option value="">-- None / General Facility --</option>
+                    {assets.map((ast) => (
+                      <option key={ast.id} value={ast.id}>
+                        [{ast.assetTag}] {ast.name} ({ast.locationId || 'Main Campus'})
                       </option>
                     ))}
                   </select>

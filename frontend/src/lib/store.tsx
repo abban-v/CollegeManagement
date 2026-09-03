@@ -111,17 +111,23 @@ const LEGACY_STORAGE_KEYS = [
 function findCategoryIdentifier(nameOrId?: string): string {
   if (!nameOrId) return 'cat-general';
   const lower = nameOrId.toLowerCase().trim();
-  const found = MOCK_CATEGORIES.find((c) => c.id.toLowerCase() === lower || c.name.toLowerCase() === lower);
-  return found ? found.id : nameOrId;
+  const exact = MOCK_CATEGORIES.find((c) => c.id.toLowerCase() === lower || c.name.toLowerCase() === lower);
+  if (exact) return exact.id;
+  const partial = MOCK_CATEGORIES.find((c) => lower.includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(lower));
+  return partial ? partial.id : nameOrId;
 }
 
 function findDepartmentIdentifier(nameOrId?: string): string {
   if (!nameOrId) return 'dept-facilities';
   const lower = nameOrId.toLowerCase().trim();
-  const found = MOCK_DEPARTMENTS.find(
+  const exact = MOCK_DEPARTMENTS.find(
     (d) => d.id.toLowerCase() === lower || d.name.toLowerCase() === lower || d.code.toLowerCase() === lower
   );
-  return found ? found.id : nameOrId;
+  if (exact) return exact.id;
+  const partial = MOCK_DEPARTMENTS.find(
+    (d) => lower.includes(d.name.toLowerCase()) || d.name.toLowerCase().includes(lower)
+  );
+  return partial ? partial.id : nameOrId;
 }
 
 // Helper to adapt backend issue object to frontend Issue type
@@ -166,6 +172,21 @@ export function mapBackendIssueToFrontend(item: ApiIssue | Record<string, unknow
     };
   }
 
+  const rawRecord = item as Record<string, unknown>;
+  const disputesArr = (rawRecord.disputes as Array<Record<string, unknown>>) || [];
+  const reopenHistory: ReopenDetails[] | undefined = disputesArr.length > 0
+    ? disputesArr.map((d) => {
+        const userObj = d.user as Record<string, unknown> | undefined;
+        return {
+          reason: (d.reason as string) || '',
+          reopenedById: (d.userId as string) || (userObj?.id as string) || '',
+          reopenedByName: (userObj?.name as string) || 'Campus Member',
+          evidenceUrls: Array.isArray(d.evidenceUrls) ? (d.evidenceUrls as string[]) : [],
+          reopenedAt: (d.createdAt as string) || new Date().toISOString(),
+        };
+      })
+    : (rawRecord.reopenHistory as ReopenDetails[] | undefined);
+
   const reporterObj = item.reporter as { id?: string; name?: string; email?: string; role?: string } | undefined;
   const reporterRole = ((reporterObj?.role as string) || (item.reporterRole as string) || 'STUDENT').toUpperCase() as UserRole;
 
@@ -194,19 +215,6 @@ export function mapBackendIssueToFrontend(item: ApiIssue | Record<string, unknow
       modelUsed: (analysisObj.modelUsed as string) || 'Gemini 2.5 Flash',
     };
   }
-
-  const rawItem = item as Record<string, unknown>;
-  const disputesArr = (rawItem.disputes as Array<Record<string, unknown>>) || [];
-  const reopenHistory = disputesArr.length > 0 ? disputesArr.map((d) => {
-    const userObj = d.user as Record<string, unknown> | undefined;
-    return {
-      reason: (d.reason as string) || '',
-      reopenedById: (d.userId as string) || (userObj?.id as string) || '',
-      reopenedByName: (userObj?.name as string) || 'Campus Member',
-      evidenceUrls: Array.isArray(d.evidenceUrls) ? (d.evidenceUrls as string[]) : [],
-      reopenedAt: (d.createdAt as string) || new Date().toISOString(),
-    };
-  }) : (rawItem.reopenHistory as ReopenDetails[] | undefined);
 
   return {
     id: String(item.id ?? 'unknown'),
@@ -1060,7 +1068,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const lower = id.toLowerCase().trim();
     return (
       MOCK_DEPARTMENTS.find(
-        (d) => d.id.toLowerCase() === lower || d.name.toLowerCase() === lower || d.code.toLowerCase() === lower
+        (d) =>
+          d.id.toLowerCase() === lower ||
+          d.name.toLowerCase() === lower ||
+          d.code.toLowerCase() === lower ||
+          lower.includes(d.name.toLowerCase()) ||
+          d.name.toLowerCase().includes(lower)
       ) || { id, name: id, code: 'CET' }
     );
   };
@@ -1075,8 +1088,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!id) return undefined;
     const lower = id.toLowerCase().trim();
     return (
-      MOCK_CATEGORIES.find((c) => c.id.toLowerCase() === lower || c.name.toLowerCase() === lower) ||
-      { id, name: id, description: '', iconName: 'Tag', active: true }
+      MOCK_CATEGORIES.find(
+        (c) =>
+          c.id.toLowerCase() === lower ||
+          c.name.toLowerCase() === lower ||
+          lower.includes(c.name.toLowerCase()) ||
+          c.name.toLowerCase().includes(lower)
+      ) || { id, name: id, description: '', iconName: 'Tag', active: true }
     );
   };
 
