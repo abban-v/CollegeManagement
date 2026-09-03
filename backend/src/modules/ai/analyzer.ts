@@ -1,4 +1,4 @@
-import { IssuePriority, type Issue } from "@prisma/client";
+import { IssuePriority } from "@prisma/client";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export type ExistingIssueContext = {

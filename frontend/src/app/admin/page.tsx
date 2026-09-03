@@ -116,6 +116,21 @@ export default function AdminDashboardPage() {
     }
   }, [currentUser, isLoadingAuth, router]);
 
+  const activeIssues = issues.filter((i) => i.moderationStatus !== 'REMOVED');
+  const criticalIssues = activeIssues.filter((i) => (i.priority === 'CRITICAL' || i.priority === 'HIGH') && i.status !== 'VERIFIED' && i.status !== 'CLOSED');
+  const verifiedIssues = activeIssues.filter((i) => i.status === 'VERIFIED');
+  
+  // Combine server-fetched moderation queue with active in-memory flagged issues
+  const flaggedIssues = React.useMemo(() => {
+    const combined = [...moderationList];
+    for (const iss of issues) {
+      if ((iss.moderationStatus === 'FLAGGED' || iss.moderationStatus === 'UNDER_REVIEW') && !combined.some((c) => c.id === iss.id)) {
+        combined.push(iss);
+      }
+    }
+    return combined.filter((i) => i.moderationStatus === 'FLAGGED' || i.moderationStatus === 'UNDER_REVIEW');
+  }, [moderationList, issues]);
+
   if (isLoadingAuth || !currentUser) {
     return (
       <div className="min-h-screen bg-[#060813] flex items-center justify-center text-purple-400">
@@ -144,21 +159,6 @@ export default function AdminDashboardPage() {
       </div>
     );
   }
-
-  const activeIssues = issues.filter((i) => i.moderationStatus !== 'REMOVED');
-  const criticalIssues = activeIssues.filter((i) => (i.priority === 'CRITICAL' || i.priority === 'HIGH') && i.status !== 'VERIFIED' && i.status !== 'CLOSED');
-  const verifiedIssues = activeIssues.filter((i) => i.status === 'VERIFIED');
-  
-  // Combine server-fetched moderation queue with active in-memory flagged issues
-  const flaggedIssues = React.useMemo(() => {
-    const combined = [...moderationList];
-    for (const iss of issues) {
-      if ((iss.moderationStatus === 'FLAGGED' || iss.moderationStatus === 'UNDER_REVIEW') && !combined.some((c) => c.id === iss.id)) {
-        combined.push(iss);
-      }
-    }
-    return combined.filter((i) => i.moderationStatus === 'FLAGGED' || i.moderationStatus === 'UNDER_REVIEW');
-  }, [moderationList, issues]);
 
   return (
     <div className="min-h-screen bg-[#060813] text-slate-100 flex flex-col relative overflow-hidden">

@@ -163,7 +163,7 @@ function buildApiUrl(endpoint: string): string {
     return endpoint;
   }
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  let base = API_BASE_URL.trim();
+  const base = API_BASE_URL.trim();
   
   if (base.endsWith('/api/v1')) {
     return `${base}${cleanEndpoint}`;
@@ -338,6 +338,7 @@ export const apiClient = {
     suspectedCause?: string;
     proposedSolution?: string;
     attachments?: string[];
+    assetId?: string;
   }) {
     return apiFetch<Issue>('/issues', { method: 'POST', body: JSON.stringify(data) });
   },

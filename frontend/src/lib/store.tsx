@@ -18,6 +18,7 @@ import {
   UserRole,
   AIAnalysis,
   IssueReport,
+  ReopenDetails,
 } from './types';
 import {
   MOCK_USERS,
@@ -194,6 +195,19 @@ export function mapBackendIssueToFrontend(item: ApiIssue | Record<string, unknow
     };
   }
 
+  const rawItem = item as Record<string, unknown>;
+  const disputesArr = (rawItem.disputes as Array<Record<string, unknown>>) || [];
+  const reopenHistory = disputesArr.length > 0 ? disputesArr.map((d) => {
+    const userObj = d.user as Record<string, unknown> | undefined;
+    return {
+      reason: (d.reason as string) || '',
+      reopenedById: (d.userId as string) || (userObj?.id as string) || '',
+      reopenedByName: (userObj?.name as string) || 'Campus Member',
+      evidenceUrls: Array.isArray(d.evidenceUrls) ? (d.evidenceUrls as string[]) : [],
+      reopenedAt: (d.createdAt as string) || new Date().toISOString(),
+    };
+  }) : (rawItem.reopenHistory as ReopenDetails[] | undefined);
+
   return {
     id: String(item.id ?? 'unknown'),
     title: String(item.title ?? 'Untitled issue'),
@@ -218,6 +232,7 @@ export function mapBackendIssueToFrontend(item: ApiIssue | Record<string, unknow
     followerUserIds,
     aiAnalysis,
     resolutionProof,
+    reopenHistory,
     createdAt: (item.createdAt as string) || new Date().toISOString(),
     updatedAt: (item.updatedAt as string) || new Date().toISOString(),
   };
@@ -508,6 +523,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       suspectedCause: input.possibleCause,
       proposedSolution: input.suggestedSolution,
       attachments: input.attachments || [],
+      assetId: input.assetId,
     });
 
     if (backendRes.data) {
