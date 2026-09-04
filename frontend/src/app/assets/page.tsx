@@ -23,7 +23,7 @@ import {
   Trash2,
   Loader2
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { triggerQuantumBurst } from '@/lib/quantumBurst';
 import { CampusRadarLoader } from '@/components/ui/CustomLoader';
 import { AmbientBackground } from '@/components/layout/AmbientBackground';
 
@@ -136,7 +136,7 @@ export default function AssetsPage() {
     };
 
     addAsset(createdAsset);
-    confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+    triggerQuantumBurst({ variant: 'emerald', particleCount: 40 });
     setIsAddAssetOpen(false);
     setNewAssetName('');
     setNewAssetTag('');

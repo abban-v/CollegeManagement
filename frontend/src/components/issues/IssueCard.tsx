@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Issue } from '@/lib/types';
 import { useApp } from '@/lib/store';
 import { StatusBadge, PriorityBadge } from '@/components/ui/Badge';
-import confetti from 'canvas-confetti';
+import { triggerQuantumBurst } from '@/lib/quantumBurst';
 import {
   MapPin,
   Building2,
@@ -35,17 +35,14 @@ export const IssueCard: React.FC<IssueCardProps> = ({ issue }) => {
     e.preventDefault();
     e.stopPropagation();
     
-    // Trigger festive mini confetti if upvoting
+    // Trigger localized quantum pulse & micro-spark shockwave if upvoting
     if (!isAffected) {
       const rect = e.currentTarget.getBoundingClientRect();
-      confetti({
-        particleCount: 25,
-        spread: 45,
-        origin: {
-          x: (rect.left + rect.width / 2) / window.innerWidth,
-          y: (rect.top + rect.height / 2) / window.innerHeight,
-        },
-        colors: ['#2563eb', '#3b82f6', '#10b981', '#f59e0b'],
+      triggerQuantumBurst({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+        variant: 'cobalt',
+        particleCount: 28,
       });
     }
     

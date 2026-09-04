@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useApp } from '@/lib/store';
 import { apiClient } from '@/lib/api';
 import { X, CheckCircle2, Upload, AlertCircle, Camera, ShieldCheck, Check, Loader2 } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { triggerQuantumBurst } from '@/lib/quantumBurst';
 
 interface ResolutionProofModalProps {
   issueId: string;
@@ -42,11 +42,9 @@ export const ResolutionProofModal: React.FC<ResolutionProofModalProps> = ({
     const success = await submitResolution(issueId, notes.trim(), proofImage, uploadId || undefined);
 
     if (success) {
-      confetti({
-        particleCount: 70,
-        spread: 80,
-        origin: { y: 0.6 },
-        colors: ['#10b981', '#34d399', '#6ee7b7', '#a855f7'],
+      triggerQuantumBurst({
+        variant: 'emerald',
+        particleCount: 45,
       });
       onClose();
     }

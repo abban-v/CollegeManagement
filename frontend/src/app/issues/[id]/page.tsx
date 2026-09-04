@@ -9,7 +9,7 @@ import { StatusBadge, PriorityBadge, ModerationBadge } from '@/components/ui/Bad
 import { ResolutionProofModal } from '@/components/issues/ResolutionProofModal';
 import { ReopenModal } from '@/components/issues/ReopenModal';
 import { formatImageUrl } from '@/lib/api';
-import confetti from 'canvas-confetti';
+import { triggerQuantumBurst } from '@/lib/quantumBurst';
 import {
   ArrowLeft,
   MapPin,
@@ -128,19 +128,26 @@ export default function IssueDetailPage() {
   const isAffected = issue.affectedUserIds.includes(currentUser.id);
   const isOfficialOrAdmin = currentUser.role === 'ADMIN' || currentUser.role === 'OFFICIAL';
 
-  const handleUpvote = () => {
+  const handleUpvote = (e?: React.MouseEvent) => {
     if (!isAffected) {
-      confetti({ particleCount: 30, spread: 50, origin: { y: 0.6 } });
+      const rect = e?.currentTarget?.getBoundingClientRect?.();
+      triggerQuantumBurst({
+        x: rect ? rect.left + rect.width / 2 : undefined,
+        y: rect ? rect.top + rect.height / 2 : undefined,
+        variant: 'cobalt',
+        particleCount: 30,
+      });
     }
     toggleAffected(issue.id);
   };
 
-  const handleVerify = () => {
-    confetti({
-      particleCount: 60,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: ['#10b981', '#34d399', '#6ee7b7'],
+  const handleVerify = (e?: React.MouseEvent) => {
+    const rect = e?.currentTarget?.getBoundingClientRect?.();
+    triggerQuantumBurst({
+      x: rect ? rect.left + rect.width / 2 : undefined,
+      y: rect ? rect.top + rect.height / 2 : undefined,
+      variant: 'emerald',
+      particleCount: 40,
     });
     verifyResolution(issue.id);
   };

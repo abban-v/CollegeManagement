@@ -22,7 +22,7 @@ import {
   Loader2,
   RotateCcw,
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { triggerQuantumBurst } from '@/lib/quantumBurst';
 import { CompactPulseSpinner, AiSentinelPulse } from '@/components/ui/CustomLoader';
 
 function cleanErrorMessage(rawMsg: string): string {
@@ -159,10 +159,9 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
           'Notice: Your issue has been submitted and is currently held for review by campus administrators due to low confidence or potential spam. It will be published to the live campus feed once approved.'
         );
       } else {
-        confetti({
-          particleCount: 60,
-          spread: 70,
-          origin: { y: 0.6 },
+        triggerQuantumBurst({
+          variant: 'cobalt',
+          particleCount: 45,
         });
       }
 

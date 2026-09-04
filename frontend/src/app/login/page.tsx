@@ -11,7 +11,7 @@ import {
   Lock,
   Sparkles,
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { triggerQuantumBurst } from '@/lib/quantumBurst';
 import { CompactPulseSpinner } from '@/components/ui/CustomLoader';
 import { AmbientBackground } from '@/components/layout/AmbientBackground';
 
@@ -102,7 +102,7 @@ export default function LoginPage() {
                 });
 
                 if (authRes.data) {
-                  confetti({ particleCount: 70, spread: 80, origin: { y: 0.6 } });
+                  triggerQuantumBurst({ variant: 'cobalt', particleCount: 45 });
                   setUserFromAuthResponse(authRes.data);
                   router.push('/');
                 } else {
