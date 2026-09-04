@@ -227,33 +227,16 @@
   animation: card-shimmer 3s ease-in-out infinite;
 }
 
-/* ─── Ambient Telemetry & Tech Background Keyframes ───────────────────────── */
-
-@keyframes telemetry-scan {
-  0% {
-    transform: translate3d(0, -120px, 0);
-    opacity: 0;
-  }
-  15% {
-    opacity: 0.08;
-  }
-  85% {
-    opacity: 0.08;
-  }
-  100% {
-    transform: translate3d(0, 100vh, 0);
-    opacity: 0;
-  }
-}
+/* ─── Ambient Telemetry & Dust Particles Background Keyframes ───────────── */
 
 @keyframes float-dust {
   0%, 100% {
     transform: translate3d(0, 0, 0);
-    opacity: 0.12;
+    opacity: 0.28;
   }
   50% {
     transform: translate3d(var(--drift-x, 15px), -55px, 0);
-    opacity: 0.45;
+    opacity: 0.85;
   }
 }
 
@@ -267,11 +250,6 @@
   66% {
     transform: translate3d(-3%, 7%, 0) scale(0.96);
   }
-}
-
-.animate-telemetry-scan {
-  will-change: transform, opacity;
-  animation: telemetry-scan 18s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
 .animate-dust {
@@ -289,7 +267,6 @@
   .animate-float-reverse,
   .animate-pulse-glow,
   .animate-card-shimmer,
-  .animate-telemetry-scan,
   .animate-dust,
   .animate-ambient-drift {
     animation: none !important;
