@@ -25,7 +25,7 @@ import { AmbientBackground } from '@/components/layout/AmbientBackground';
 
 export default function HomePage() {
   const router = useRouter();
-  const { issues, currentUser, isLoadingAuth } = useApp();
+  const { issues, currentUser, isLoadingAuth, isLoadingIssues } = useApp();
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [tabView, setTabView] = useState<'all' | 'my_reported' | 'my_affected'>('all');
 
@@ -174,7 +174,11 @@ export default function HomePage() {
                 <AlertOctagon className="w-4 h-4 text-blue-400" />
                 <span>Active Issues</span>
               </div>
-              <p className="text-xl font-extrabold text-white mt-1">{totalOpen}</p>
+              {isLoadingIssues ? (
+                <div className="h-6 w-12 bg-zinc-800/70 rounded-md animate-pulse mt-1" />
+              ) : (
+                <p className="text-xl font-extrabold text-white mt-1">{totalOpen}</p>
+              )}
             </div>
 
             <div className="p-3 rounded-2xl bg-black/40 border border-zinc-800/80">
@@ -182,7 +186,11 @@ export default function HomePage() {
                 <Flame className="w-4 h-4 text-rose-400" />
                 <span>High / Critical</span>
               </div>
-              <p className="text-xl font-extrabold text-rose-400 mt-1">{criticalCount}</p>
+              {isLoadingIssues ? (
+                <div className="h-6 w-12 bg-zinc-800/70 rounded-md animate-pulse mt-1" />
+              ) : (
+                <p className="text-xl font-extrabold text-rose-400 mt-1">{criticalCount}</p>
+              )}
             </div>
 
             <div className="p-3 rounded-2xl bg-black/40 border border-zinc-800/80">
@@ -190,7 +198,11 @@ export default function HomePage() {
                 <Clock className="w-4 h-4 text-amber-400" />
                 <span>Under Repair</span>
               </div>
-              <p className="text-xl font-extrabold text-amber-300 mt-1">{inProgressCount}</p>
+              {isLoadingIssues ? (
+                <div className="h-6 w-12 bg-zinc-800/70 rounded-md animate-pulse mt-1" />
+              ) : (
+                <p className="text-xl font-extrabold text-amber-300 mt-1">{inProgressCount}</p>
+              )}
             </div>
 
             <div className="p-3 rounded-2xl bg-black/40 border border-zinc-800/80">
@@ -198,7 +210,11 @@ export default function HomePage() {
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 <span>Fixed & Verified</span>
               </div>
-              <p className="text-xl font-extrabold text-emerald-400 mt-1">{resolvedCount}</p>
+              {isLoadingIssues ? (
+                <div className="h-6 w-12 bg-zinc-800/70 rounded-md animate-pulse mt-1" />
+              ) : (
+                <p className="text-xl font-extrabold text-emerald-400 mt-1">{resolvedCount}</p>
+              )}
             </div>
           </div>
         </div>
@@ -215,7 +231,7 @@ export default function HomePage() {
               }`}
             >
               <Layers className="w-4 h-4" />
-              All Campus Issues ({publicIssues.length})
+              All Campus Issues {isLoadingIssues ? '(…)' : `(${publicIssues.length})`}
             </button>
 
             <button
@@ -227,7 +243,7 @@ export default function HomePage() {
               }`}
             >
               <UserCheck className="w-4 h-4" />
-              Reported by Me ({currentUser ? issues.filter((i) => i.reporterId === currentUser.id && i.moderationStatus !== 'REMOVED').length : 0})
+              Reported by Me {isLoadingIssues ? '(…)' : `(${currentUser ? issues.filter((i) => i.reporterId === currentUser.id && i.moderationStatus !== 'REMOVED').length : 0})`}
             </button>
 
             <button
@@ -239,7 +255,7 @@ export default function HomePage() {
               }`}
             >
               <ThumbsUp className="w-4 h-4" />
-              I&apos;m Affected ({currentUser ? publicIssues.filter((i) => i.affectedUserIds.includes(currentUser.id)).length : 0})
+              I&apos;m Affected {isLoadingIssues ? '(…)' : `(${currentUser ? publicIssues.filter((i) => i.affectedUserIds.includes(currentUser.id)).length : 0})`}
             </button>
           </div>
         </div>
@@ -248,7 +264,33 @@ export default function HomePage() {
         <IssueFilterBar filters={filters} onFilterChange={setFilters} />
 
         {/* Problem Tiles Grid */}
-        {filteredIssues.length === 0 ? (
+        {isLoadingIssues ? (
+          <div className="rounded-3xl glass-panel p-8 sm:p-14 border border-zinc-800 flex flex-col items-center justify-center min-h-[380px] text-center">
+            <CampusRadarLoader
+              size="lg"
+              message="Loading campus infrastructure issues..."
+              subMessage="Connecting to live facility database & telemetry"
+            />
+            {/* 3-card skeleton outline preview underneath */}
+            <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-5 mt-10 opacity-35 pointer-events-none">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="rounded-2xl bg-[#121217] border border-zinc-800/80 p-5 space-y-3.5 animate-pulse">
+                  <div className="flex justify-between items-center">
+                    <div className="h-4 w-24 bg-zinc-800 rounded-md" />
+                    <div className="h-4 w-16 bg-zinc-800 rounded-md" />
+                  </div>
+                  <div className="h-5 w-4/5 bg-zinc-700/60 rounded-md" />
+                  <div className="h-3.5 w-full bg-zinc-800/80 rounded-md" />
+                  <div className="h-3.5 w-3/5 bg-zinc-800/80 rounded-md" />
+                  <div className="pt-2 flex justify-between items-center">
+                    <div className="h-4 w-28 bg-zinc-800/60 rounded-md" />
+                    <div className="h-7 w-20 bg-blue-900/30 border border-blue-800/40 rounded-xl" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : filteredIssues.length === 0 ? (
           <div className="rounded-3xl glass-panel p-6 sm:p-10 border border-zinc-800">
             <EmptyStateIllustration
               type={issues.length === 0 ? 'issues' : 'search'}

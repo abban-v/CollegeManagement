@@ -48,6 +48,7 @@ interface AppContextType {
   currentUser: User | null;
   users: User[];
   isLoadingAuth: boolean;
+  isLoadingIssues: boolean;
   login: (email: string, password?: string) => Promise<User>;
   setUserFromAuthResponse: (userData: { id: string; email: string; name: string | null; role: string }) => User;
   logout: () => Promise<void>;
@@ -333,6 +334,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
 
   const [issues, setIssues] = useState<Issue[]>([]);
+  const [isLoadingIssues, setIsLoadingIssues] = useState<boolean>(true);
   const [comments, setComments] = useState<Record<string, IssueComment[]>>({});
   const [statusHistory, setStatusHistory] = useState<Record<string, IssueStatusHistory[]>>({});
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -378,6 +380,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (e) {
       console.warn('Could not fetch issues from backend:', e);
+    } finally {
+      setIsLoadingIssues(false);
     }
   }, []);
 
@@ -523,6 +527,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } finally {
         setIsInitialized(true);
         setIsLoadingAuth(false);
+        setIsLoadingIssues(false);
       }
     }
 
@@ -1247,6 +1252,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         currentUser,
         users: MOCK_USERS,
         isLoadingAuth,
+        isLoadingIssues,
         login,
         setUserFromAuthResponse,
         logout,

@@ -31,7 +31,7 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import Link from 'next/link';
-import { CampusRadarLoader } from '@/components/ui/CustomLoader';
+import { CampusRadarLoader, CompactPulseSpinner } from '@/components/ui/CustomLoader';
 import { AmbientBackground } from '@/components/layout/AmbientBackground';
 
 interface AdminUserRecord {
@@ -52,6 +52,7 @@ export default function AdminDashboardPage() {
     refreshIssues,
     currentUser,
     isLoadingAuth,
+    isLoadingIssues,
   } = useApp();
   
   const [activeTab, setActiveTab] = useState<'workorders' | 'moderation' | 'ai_insights' | 'users'>('workorders');
@@ -198,7 +199,11 @@ export default function AdminDashboardPage() {
               <span className="text-xs text-slate-400">Total Work Orders</span>
               <Layers className="w-4 h-4 text-zinc-400" />
             </div>
-            <p className="text-2xl font-black text-white mt-2">{issues.length}</p>
+            {isLoadingIssues ? (
+              <div className="h-8 w-16 bg-zinc-800/70 rounded-md animate-pulse mt-2" />
+            ) : (
+              <p className="text-2xl font-black text-white mt-2">{issues.length}</p>
+            )}
             <span className="text-[11px] text-zinc-400 mt-1 block">Active across all campus zones</span>
           </div>
 
@@ -207,7 +212,11 @@ export default function AdminDashboardPage() {
               <span className="text-xs text-slate-400">Immediate Triage</span>
               <AlertTriangle className="w-4 h-4 text-rose-400" />
             </div>
-            <p className="text-2xl font-black text-rose-400 mt-2">{criticalIssues.length}</p>
+            {isLoadingIssues ? (
+              <div className="h-8 w-16 bg-zinc-800/70 rounded-md animate-pulse mt-2" />
+            ) : (
+              <p className="text-2xl font-black text-rose-400 mt-2">{criticalIssues.length}</p>
+            )}
             <span className="text-[11px] text-rose-400/80 mt-1 block">High/Critical priority open</span>
           </div>
 
@@ -216,9 +225,13 @@ export default function AdminDashboardPage() {
               <span className="text-xs text-slate-400">Moderation Queue</span>
               <Flag className="w-4 h-4 text-amber-400" />
             </div>
-            <p className="text-2xl font-black text-amber-300 mt-2">
-              {flaggedIssues.length}
-            </p>
+            {isLoadingModeration ? (
+              <div className="h-8 w-16 bg-zinc-800/70 rounded-md animate-pulse mt-2" />
+            ) : (
+              <p className="text-2xl font-black text-amber-300 mt-2">
+                {flaggedIssues.length}
+              </p>
+            )}
             <span className="text-[11px] text-amber-300/80 mt-1 block">User/AI flagged content</span>
           </div>
 
@@ -294,33 +307,48 @@ export default function AdminDashboardPage() {
                 Department Infrastructure Load
               </h3>
 
-              <div className="space-y-4">
-                {departments.map((dept) => {
-                  const deptIssues = issues.filter((i) => i.departmentId === dept.id);
-                  const percentage = issues.length > 0 ? (deptIssues.length / issues.length) * 100 : 0;
-                  return (
-                    <div key={dept.id} className="space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-semibold text-slate-200">{dept.name} ({dept.code})</span>
-                        <span className="text-slate-400">{deptIssues.length} logged issues</span>
+              {isLoadingIssues ? (
+                <div className="py-6 flex flex-col items-center justify-center text-center">
+                  <CompactPulseSpinner size={22} className="text-zinc-400 mb-2" />
+                  <span className="text-xs text-zinc-400 font-medium">Calculating infrastructure load...</span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {departments.map((dept) => {
+                    const deptIssues = issues.filter((i) => i.departmentId === dept.id);
+                    const percentage = issues.length > 0 ? (deptIssues.length / issues.length) * 100 : 0;
+                    return (
+                      <div key={dept.id} className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-slate-200">{dept.name} ({dept.code})</span>
+                          <span className="text-slate-400">{deptIssues.length} logged issues</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-zinc-900 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-600 transition-all duration-500"
+                            style={{ width: `${Math.max(percentage, 5)}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="w-full h-2 rounded-full bg-zinc-900 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-600 transition-all duration-500"
-                          style={{ width: `${Math.max(percentage, 5)}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Work Orders Table */}
             <div className="rounded-2xl bg-[#141417] p-6 border border-zinc-800 shadow-md overflow-hidden">
               <h3 className="text-base font-bold text-white mb-4">Active Issue Triage Queue</h3>
 
-              {issues.length === 0 ? (
+              {isLoadingIssues ? (
+                <div className="py-12 flex flex-col items-center justify-center text-center">
+                  <CampusRadarLoader
+                    size="md"
+                    message="Loading active triage queue..."
+                    subMessage="Synchronizing work orders from database"
+                  />
+                </div>
+              ) : issues.length === 0 ? (
                 <p className="text-xs text-slate-400 italic text-center py-8">
                   No issues currently in the triage queue.
                 </p>
@@ -405,7 +433,15 @@ export default function AdminDashboardPage() {
               </span>
             </div>
 
-            {flaggedIssues.length === 0 ? (
+            {isLoadingModeration ? (
+              <div className="py-12 flex flex-col items-center justify-center text-center">
+                <CampusRadarLoader
+                  size="md"
+                  message="Loading moderation review queue..."
+                  subMessage="Scanning flagged reports & spam hold filters"
+                />
+              </div>
+            ) : flaggedIssues.length === 0 ? (
               <div className="py-12 text-center text-slate-400">
                 <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-emerald-400/60" />
                 <p className="text-xs font-medium">Moderation queue is clean. No potential spam or flagged content pending review.</p>
