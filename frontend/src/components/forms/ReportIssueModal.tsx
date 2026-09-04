@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useApp } from '@/lib/store';
 import { apiClient } from '@/lib/api';
 import { IssuePriority } from '@/lib/types';
@@ -19,9 +19,26 @@ import {
   ArrowRight,
   Info,
   Sparkles,
-  Loader2
+  Loader2,
+  RotateCcw,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+
+function cleanErrorMessage(rawMsg: string): string {
+  if (!rawMsg) return 'Failed to submit problem report.';
+  // Parse JSON if backend or Zod returned stringified issues: e.g. [{"message":"Description must be at least 10 characters",...}]
+  const jsonMatch = rawMsg.match(/\[\s*\{[\s\S]*\}\s*\]/);
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const msgs = parsed.map((item: { message?: string }) => item.message).filter(Boolean);
+        if (msgs.length > 0) return msgs.join('; ');
+      }
+    } catch {}
+  }
+  return rawMsg.replace(/^Validation error:\s*/i, '');
+}
 
 interface ReportIssueModalProps {
   isOpen: boolean;
@@ -56,6 +73,37 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [serverDuplicate, setServerDuplicate] = useState<{ id: string; title: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'diagnostics' | 'evidence'>('details');
+
+  const resetForm = useCallback(() => {
+    setTitle('');
+    setDescription('');
+    setDepartmentId(departments[0]?.id || 'dept-facilities');
+    setLocationDetails('');
+    setCategoryId(categories[0]?.id || 'cat-general');
+    setAssetId('');
+    setPriority('MEDIUM');
+    setPossibleCause('');
+    setSuggestedSolution('');
+    setOccurredAt('');
+    setSelectedImage('');
+    setIsUploadingImage(false);
+    setIsSubmitting(false);
+    setErrorMessage(null);
+    setServerDuplicate(null);
+    setActiveTab('details');
+  }, [departments, categories]);
+
+  const handleClose = useCallback(() => {
+    resetForm();
+    onClose();
+  }, [resetForm, onClose]);
+
+  // Ensure form is completely cleared whenever the modal is closed without clicking submit
+  useEffect(() => {
+    if (!isOpen) {
+      resetForm();
+    }
+  }, [isOpen, resetForm]);
 
   // Duplicate detection
   const potentialDuplicates = useMemo(() => {
@@ -117,11 +165,12 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
         });
       }
 
+      resetForm();
       onClose();
       if (onSuccess) onSuccess(created.id);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to submit problem report.';
-      setErrorMessage(msg);
+      setErrorMessage(cleanErrorMessage(msg));
       if (
         err &&
         typeof err === 'object' &&
@@ -142,7 +191,14 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-md flex items-center justify-center p-4 sm:p-6">
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-md flex items-center justify-center p-4 sm:p-6"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          handleClose();
+        }
+      }}
+    >
       <div className="relative w-full max-w-2xl bg-[#0b0f22] border border-indigo-500/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
@@ -159,7 +215,8 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
             </div>
           </div>
           <button
-            onClick={onClose}
+            type="button"
+            onClick={handleClose}
             className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -264,7 +321,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
                         if (targetId) {
                           toggleAffected(targetId);
                           alert("You've upvoted the existing issue (added to Affected users)!");
-                          onClose();
+                          handleClose();
                         }
                       }}
                       className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
@@ -317,7 +374,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
                               onClick={() => {
                                 toggleAffected(dup.id);
                                 alert("You've been added as affected to this issue!");
-                                onClose();
+                                handleClose();
                               }}
                               className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/40 text-xs font-semibold flex items-center gap-1 shrink-0 cursor-pointer"
                             >
@@ -609,7 +666,16 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={resetForm}
+                className="px-3.5 py-2 rounded-xl text-xs text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 border border-slate-800/60 hover:border-rose-500/30 transition-all flex items-center gap-1.5 cursor-pointer"
+                title="Clear all entered form fields"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Clear Form
+              </button>
+              <button
+                type="button"
+                onClick={handleClose}
                 className="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
               >
                 Cancel

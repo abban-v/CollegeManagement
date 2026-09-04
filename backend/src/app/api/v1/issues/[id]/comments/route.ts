@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { issueService } from "@/modules/issues/service";
 import { CreateCommentSchema } from "@/lib/validation/comment";
-import { errorResponse, getErrorMessage, sendJSON, successResponse } from "@/lib/api";
+import { errorResponse, getErrorMessage, sendJSON, successResponse, formatZodError } from "@/lib/api";
 import { withAuth } from "@/lib/auth";
 
 /**
@@ -63,7 +63,7 @@ export const POST = withAuth(async (
     console.error("Error adding comment:", error);
 
     if (error instanceof ZodError) {
-      return sendJSON(errorResponse(`Validation error: ${error.message}`, 400));
+      return sendJSON(errorResponse(formatZodError(error), 400));
     }
 
     if (error instanceof Error && error.message.includes("not found")) {

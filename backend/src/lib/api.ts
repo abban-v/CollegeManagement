@@ -1,3 +1,5 @@
+import { ZodError } from "zod";
+
 // Consistent API response format
 export interface APIResponse<T = unknown> {
   data: T | null;
@@ -32,4 +34,12 @@ export function sendJSON<T>(response: APIResponse<T>) {
 
 export function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
+}
+
+export function formatZodError(error: ZodError): string {
+  const issues = error.issues || (error as unknown as { errors?: { message?: string }[] }).errors;
+  if (Array.isArray(issues) && issues.length > 0) {
+    return issues.map((e) => e.message).filter(Boolean).join("; ");
+  }
+  return error.message;
 }

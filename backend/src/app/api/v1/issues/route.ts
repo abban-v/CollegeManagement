@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { CreateIssueSchema, IssuePriorityEnum, IssueStatusEnum } from "@/lib/validation/issue";
 import { issueService, FabricatedSpamError, DuplicateIssueError } from "@/modules/issues/service";
-import { getErrorMessage, successResponse, errorResponse, sendJSON } from "@/lib/api";
+import { getErrorMessage, successResponse, errorResponse, sendJSON, formatZodError } from "@/lib/api";
 import { withAuth } from "@/lib/auth";
 
 /**
@@ -92,7 +92,7 @@ export const POST = withAuth(async (request: NextRequest, _context, session) => 
 
     // Check if it's a Zod validation error
     if (error instanceof ZodError) {
-      return sendJSON(errorResponse(`Validation error: ${error.message}`, 400));
+      return sendJSON(errorResponse(formatZodError(error), 400));
     }
 
     return sendJSON(

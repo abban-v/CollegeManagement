@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { ZodError, z } from "zod";
 import prisma from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { getErrorMessage, successResponse, errorResponse, sendJSON } from "@/lib/api";
+import { getErrorMessage, successResponse, errorResponse, sendJSON, formatZodError } from "@/lib/api";
 import { createSession } from "@/lib/auth";
 import { checkRateLimit, getLoginRateLimitIdentifier } from "@/lib/middleware/rateLimit";
 
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     console.error("Login error:", error);
 
     if (error instanceof ZodError) {
-      return sendJSON(errorResponse(`Validation error: ${error.message}`, 400));
+      return sendJSON(errorResponse(formatZodError(error), 400));
     }
 
     return sendJSON(errorResponse(getErrorMessage(error, "Login failed"), 500));
