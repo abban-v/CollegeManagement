@@ -35,13 +35,13 @@ export const IssueFilterBar: React.FC<IssueFilterBarProps> = ({ filters, onFilte
       <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
         {/* Search input */}
         <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400/70" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-400/70" />
           <input
             type="text"
             placeholder="Search problems, equipment (e.g. Projector, AC, Lab 202, Pump)..."
             value={filters.search}
             onChange={(e) => onFilterChange({ ...filters, search: e.target.value })}
-            className="w-full pl-10 pr-4 py-2.5 min-h-[44px] rounded-xl bg-[#090d20]/80 border border-indigo-950/80 focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20 text-sm text-white placeholder-slate-500 transition-all outline-none"
+            className="w-full pl-10 pr-4 py-2.5 min-h-[44px] rounded-xl bg-[#121217] border border-zinc-800 focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/20 text-sm text-white placeholder-slate-500 transition-all outline-none"
           />
         </div>
 
@@ -51,7 +51,7 @@ export const IssueFilterBar: React.FC<IssueFilterBarProps> = ({ filters, onFilte
           <select
             value={filters.departmentId}
             onChange={(e) => onFilterChange({ ...filters, departmentId: e.target.value })}
-            className="w-full md:w-auto px-3 py-2.5 min-h-[42px] rounded-xl bg-[#090d20]/90 border border-indigo-950/80 text-xs sm:text-sm text-slate-300 focus:border-purple-500/60 outline-none cursor-pointer"
+            className="w-full md:w-auto px-3 py-2.5 min-h-[42px] rounded-xl bg-[#121217] border border-zinc-800 text-xs sm:text-sm text-slate-300 focus:border-blue-500/60 outline-none cursor-pointer"
           >
             <option value="ALL">All Departments</option>
             {departments.map((dept) => (
@@ -65,7 +65,7 @@ export const IssueFilterBar: React.FC<IssueFilterBarProps> = ({ filters, onFilte
           <select
             value={filters.categoryId}
             onChange={(e) => onFilterChange({ ...filters, categoryId: e.target.value })}
-            className="w-full md:w-auto px-3 py-2.5 min-h-[42px] rounded-xl bg-[#090d20]/90 border border-indigo-950/80 text-xs sm:text-sm text-slate-300 focus:border-purple-500/60 outline-none cursor-pointer"
+            className="w-full md:w-auto px-3 py-2.5 min-h-[42px] rounded-xl bg-[#121217] border border-zinc-800 text-xs sm:text-sm text-slate-300 focus:border-blue-500/60 outline-none cursor-pointer"
           >
             <option value="ALL">All Categories</option>
             {categories.map((cat) => (
@@ -81,7 +81,7 @@ export const IssueFilterBar: React.FC<IssueFilterBarProps> = ({ filters, onFilte
             onChange={(e) =>
               onFilterChange({ ...filters, sortBy: e.target.value as FilterState['sortBy'] })
             }
-            className="w-full md:w-auto px-3 py-2.5 min-h-[42px] rounded-xl bg-[#090d20]/90 border border-indigo-950/80 text-xs sm:text-sm text-slate-300 focus:border-purple-500/60 outline-none cursor-pointer"
+            className="w-full md:w-auto px-3 py-2.5 min-h-[42px] rounded-xl bg-[#121217] border border-zinc-800 text-xs sm:text-sm text-slate-300 focus:border-blue-500/60 outline-none cursor-pointer"
           >
             <option value="most_affected">🔥 Most Affected / Upvoted</option>
             <option value="newest">⚡ Newest First</option>
@@ -100,8 +100,8 @@ export const IssueFilterBar: React.FC<IssueFilterBarProps> = ({ filters, onFilte
               onClick={() => onFilterChange({ ...filters, status: s.value })}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all active:scale-95 ${
                 isSelected
-                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_0_12px_rgba(168,85,247,0.35)]'
-                  : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-indigo-950/50'
+                  ? 'bg-blue-600 text-white shadow-[0_0_12px_rgba(37,99,235,0.35)]'
+                  : 'bg-[#121217] text-slate-400 hover:text-slate-200 hover:bg-zinc-800/60 border border-zinc-800'
               }`}
             >
               {s.label}

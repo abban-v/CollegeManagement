@@ -22,11 +22,11 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({ isOpen, 
       case 'ISSUE_CREATED':
         return <AlertCircle className="w-4 h-4 text-cyan-400" />;
       case 'STATUS_CHANGED':
-        return <RefreshCw className="w-4 h-4 text-indigo-400" />;
+        return <RefreshCw className="w-4 h-4 text-blue-400" />;
       case 'REOPENED':
         return <AlertCircle className="w-4 h-4 text-rose-400" />;
       case 'COMMENT':
-        return <MessageSquare className="w-4 h-4 text-purple-400" />;
+        return <MessageSquare className="w-4 h-4 text-blue-400" />;
       default:
         return <Bell className="w-4 h-4 text-amber-400" />;
     }
@@ -37,23 +37,23 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({ isOpen, 
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-[#0b0f22] border-l border-indigo-500/20 shadow-2xl flex flex-col">
+        <div className="w-screen max-w-md bg-[#09090B] border-l border-zinc-800 shadow-2xl flex flex-col">
           {/* Header */}
-          <div className="p-5 border-b border-indigo-950/80 flex items-center justify-between bg-[#0e1329]">
+          <div className="p-5 border-b border-zinc-800 flex items-center justify-between bg-[#121217]">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-lg bg-indigo-950/80 text-indigo-400 border border-indigo-800/40">
+              <div className="p-2 rounded-lg bg-zinc-800/80 text-blue-400 border border-zinc-700/60">
                 <Bell className="w-4 h-4" />
               </div>
               <div>
                 <h3 className="font-semibold text-white text-base">Campus Alerts & Updates</h3>
-                <p className="text-xs text-indigo-300/70">{unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}</p>
+                <p className="text-xs text-zinc-400">{unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               {unreadCount > 0 && (
                 <button
                   onClick={markAllNotificationsRead}
-                  className="text-xs text-indigo-300 hover:text-white flex items-center gap-1 px-2.5 py-1 rounded bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-800/30 transition-colors"
+                  className="text-xs text-zinc-300 hover:text-white flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 transition-colors cursor-pointer"
                 >
                   <CheckCheck className="w-3 h-3" />
                   Mark all read
@@ -61,7 +61,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({ isOpen, 
               )}
               <button
                 onClick={onClose}
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg transition-colors"
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -81,12 +81,12 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({ isOpen, 
                   key={notif.id}
                   className={`p-3.5 rounded-xl border transition-all ${
                     notif.read
-                      ? 'bg-slate-900/40 border-slate-800/60 opacity-75'
-                      : 'bg-indigo-950/30 border-indigo-500/30 shadow-[0_0_15px_-3px_rgba(99,102,241,0.15)]'
+                      ? 'bg-zinc-900/40 border-zinc-800/60 opacity-75'
+                      : 'bg-[#121217] border-blue-500/30 shadow-[0_0_15px_-3px_rgba(37,99,235,0.15)]'
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-lg bg-slate-900 border border-slate-800 shrink-0">
+                    <div className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 shrink-0">
                       {getIcon(notif.type)}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -96,7 +96,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({ isOpen, 
                           <button
                             onClick={() => markNotificationRead(notif.id)}
                             title="Mark as read"
-                            className="text-slate-500 hover:text-indigo-400 p-0.5"
+                            className="text-slate-500 hover:text-blue-400 p-0.5 cursor-pointer"
                           >
                             <Check className="w-3.5 h-3.5" />
                           </button>
@@ -110,7 +110,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({ isOpen, 
                           <Link
                             href={`/issues/${notif.issueId}`}
                             onClick={onClose}
-                            className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-medium"
+                            className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 font-medium"
                           >
                             View Ticket <ArrowUpRight className="w-3 h-3" />
                           </Link>

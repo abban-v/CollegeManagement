@@ -45,7 +45,7 @@ export const IssueCard: React.FC<IssueCardProps> = ({ issue }) => {
           x: (rect.left + rect.width / 2) / window.innerWidth,
           y: (rect.top + rect.height / 2) / window.innerHeight,
         },
-        colors: ['#a855f7', '#6366f1', '#ec4899'],
+        colors: ['#2563eb', '#3b82f6', '#10b981', '#f59e0b'],
       });
     }
     
@@ -60,19 +60,19 @@ export const IssueCard: React.FC<IssueCardProps> = ({ issue }) => {
           issue.status === 'VERIFIED' 
             ? 'bg-gradient-to-r from-emerald-500 to-teal-400' 
             : issue.status === 'RESOLUTION_SUBMITTED'
-            ? 'bg-gradient-to-r from-purple-500 to-indigo-500'
+            ? 'bg-gradient-to-r from-blue-500 to-cyan-400'
             : issue.status === 'REOPENED'
             ? 'bg-gradient-to-r from-rose-500 to-orange-500'
             : issue.status === 'IN_PROGRESS'
-            ? 'bg-gradient-to-r from-indigo-500 to-purple-500'
-            : 'bg-gradient-to-r from-cyan-500 to-indigo-500'
+            ? 'bg-gradient-to-r from-amber-500 to-orange-400'
+            : 'bg-gradient-to-r from-blue-500 to-cyan-500'
         }`} 
       />
 
       <div>
         {/* Header: Category, Status & Priority */}
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-300/90 bg-purple-950/40 px-2.5 py-1 rounded-lg border border-purple-800/30 max-w-[60%]">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-300/90 bg-blue-950/40 px-2.5 py-1 rounded-lg border border-blue-800/30 max-w-[60%]">
             <span className="truncate">{cat?.name || 'General Campus'}</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -82,7 +82,7 @@ export const IssueCard: React.FC<IssueCardProps> = ({ issue }) => {
         </div>
 
         {/* Title */}
-        <Link href={`/issues/${issue.id}`} className="block group-hover:text-purple-300 transition-colors">
+        <Link href={`/issues/${issue.id}`} className="block group-hover:text-blue-300 transition-colors">
           <h3 className="text-base font-bold text-white leading-snug line-clamp-2 mb-2 group-hover:translate-x-0.5 transition-transform break-words">
             {issue.title}
           </h3>
@@ -94,15 +94,15 @@ export const IssueCard: React.FC<IssueCardProps> = ({ issue }) => {
         </p>
 
         {/* Location & Dept Badges */}
-        <div className="space-y-1.5 mb-4 text-xs text-slate-400 bg-[#070a1a]/60 p-2.5 rounded-xl border border-indigo-950/60">
+        <div className="space-y-1.5 mb-4 text-xs text-slate-400 bg-[#0c101d]/60 p-2.5 rounded-xl border border-zinc-800">
           <div className="flex items-center gap-2 text-slate-300 min-w-0">
-            <MapPin className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+            <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0" />
             <span className="truncate font-medium">
               {loc ? `${loc.building} • ${loc.room}` : (issue.locationDetails || issue.locationId || 'Main Campus')}
             </span>
           </div>
           <div className="flex items-center gap-2 text-[11px] text-slate-400 min-w-0">
-            <Building2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+            <Building2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
             <span className="truncate">
               {dept ? (dept.code && dept.code !== dept.name ? `${dept.name} (${dept.code})` : dept.name) : (issue.departmentId || 'Campus Facilities')}
             </span>
@@ -129,22 +129,22 @@ export const IssueCard: React.FC<IssueCardProps> = ({ issue }) => {
       </div>
 
       {/* Footer / Interaction Bar */}
-      <div className="pt-3 border-t border-indigo-950/80 flex items-center justify-between gap-3 text-xs">
+      <div className="pt-3 border-t border-zinc-800 flex items-center justify-between gap-3 text-xs">
         
         {/* Upvote / I'm Affected Button */}
         <button
           onClick={handleUpvote}
           className={`flex items-center gap-2 px-3.5 py-2 min-h-[38px] rounded-xl font-medium transition-all cursor-pointer ${
             isAffected
-              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)] scale-[1.02]'
-              : 'bg-slate-900/80 text-slate-300 hover:text-purple-300 hover:bg-purple-950/40 border border-slate-800 hover:border-purple-500/30'
+              ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] scale-[1.02]'
+              : 'bg-zinc-900/80 text-slate-300 hover:text-blue-300 hover:bg-blue-950/40 border border-zinc-800 hover:border-blue-500/30'
           }`}
           title={isAffected ? "You've marked that you're also affected" : "Click if you are also facing this problem"}
         >
           <ThumbsUp className={`w-3.5 h-3.5 ${isAffected ? 'fill-current' : ''}`} />
           <span>I&apos;m Affected</span>
           <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-            isAffected ? 'bg-black/30 text-white' : 'bg-slate-800 text-purple-300'
+            isAffected ? 'bg-black/30 text-white' : 'bg-zinc-800 text-blue-300'
           }`}>
             {affectedCount}
           </span>
@@ -161,10 +161,10 @@ export const IssueCard: React.FC<IssueCardProps> = ({ issue }) => {
 
           <Link
             href={`/issues/${issue.id}`}
-            className="p-1.5 rounded-lg bg-slate-900/80 hover:bg-purple-950/60 text-slate-300 hover:text-white border border-slate-800 hover:border-purple-500/40 transition-colors flex items-center gap-1 font-medium text-xs px-2.5"
+            className="p-1.5 rounded-lg bg-zinc-900/80 hover:bg-blue-950/60 text-slate-300 hover:text-white border border-zinc-800 hover:border-blue-500/40 transition-colors flex items-center gap-1 font-medium text-xs px-2.5"
           >
             <span>Details</span>
-            <ArrowRight className="w-3.5 h-3.5 text-purple-400" />
+            <ArrowRight className="w-3.5 h-3.5 text-blue-400" />
           </Link>
         </div>
 

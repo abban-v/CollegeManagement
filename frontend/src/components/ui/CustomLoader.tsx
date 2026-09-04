@@ -32,27 +32,27 @@ export const CampusRadarLoader: React.FC<LoaderProps> = ({
     <div className={`flex flex-col items-center justify-center gap-3 select-none ${className}`}>
       <div className="relative flex items-center justify-center" style={{ width, height }}>
         {/* Ambient background glow */}
-        <div className="absolute inset-0 rounded-full bg-purple-600/20 blur-xl animate-pulse pointer-events-none" />
+        <div className="absolute inset-0 rounded-full bg-blue-600/20 blur-xl animate-pulse pointer-events-none" />
 
         <svg
           viewBox="0 0 100 100"
-          className="w-full h-full text-purple-400 drop-shadow-[0_0_12px_rgba(168,85,247,0.4)]"
+          className="w-full h-full text-blue-400 drop-shadow-[0_0_12px_rgba(59,130,246,0.4)]"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
           <defs>
             {/* Radar sweep conic-like gradient */}
             <linearGradient id="radarSweepGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#c084fc" stopOpacity="0.8" />
-              <stop offset="50%" stopColor="#818cf8" stopOpacity="0.2" />
-              <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+              <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.8" />
+              <stop offset="50%" stopColor="#3b82f6" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#1d4ed8" stopOpacity="0" />
             </linearGradient>
 
             {/* Glowing ring stroke */}
             <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#a855f7" />
-              <stop offset="50%" stopColor="#6366f1" />
-              <stop offset="100%" stopColor="#ec4899" />
+              <stop offset="0%" stopColor="#3b82f6" />
+              <stop offset="50%" stopColor="#10b981" />
+              <stop offset="100%" stopColor="#f59e0b" />
             </linearGradient>
           </defs>
 
@@ -98,7 +98,7 @@ export const CampusRadarLoader: React.FC<LoaderProps> = ({
               y1="50"
               x2="50"
               y2="6"
-              stroke="#e879f9"
+              stroke="#93c5fd"
               strokeWidth="2"
               strokeLinecap="round"
             />
@@ -106,19 +106,19 @@ export const CampusRadarLoader: React.FC<LoaderProps> = ({
 
           {/* Reverse Orbiting Telemetry Nodes */}
           <g className="origin-center animate-[spin_6s_linear_infinite_reverse]">
-            {/* Campus Node 1 */}
-            <circle cx="50" cy="18" r="3.5" fill="#a855f7" className="animate-ping origin-center" style={{ animationDuration: '2s' }} />
-            <circle cx="50" cy="18" r="3" fill="#f0abfc" />
+            {/* Campus Node 1: Emerald (Resolved / Online) */}
+            <circle cx="50" cy="18" r="3.5" fill="#10b981" className="animate-ping origin-center" style={{ animationDuration: '2s' }} />
+            <circle cx="50" cy="18" r="3" fill="#34d399" />
 
-            {/* Campus Node 2 */}
-            <circle cx="78" cy="65" r="2.5" fill="#818cf8" />
+            {/* Campus Node 2: Amber (In Progress / Active) */}
+            <circle cx="78" cy="65" r="2.5" fill="#f59e0b" />
             
-            {/* Campus Node 3 */}
-            <circle cx="24" cy="60" r="2" fill="#38bdf8" />
+            {/* Campus Node 3: Cobalt (Network Core) */}
+            <circle cx="24" cy="60" r="2" fill="#60a5fa" />
           </g>
 
           {/* Core Institutional Center Node */}
-          <circle cx="50" cy="50" r="5" fill="#6366f1" className="animate-pulse" />
+          <circle cx="50" cy="50" r="5" fill="#2563eb" className="animate-pulse" />
           <circle cx="50" cy="50" r="2.5" fill="#ffffff" />
         </svg>
       </div>
@@ -173,12 +173,12 @@ export const CompactPulseSpinner: React.FC<{ size?: number; className?: string }
 export const AiSentinelPulse: React.FC<{ className?: string }> = ({ className = '' }) => {
   return (
     <div className={`relative flex items-center justify-center w-7 h-7 shrink-0 ${className}`}>
-      <span className="absolute inline-flex h-full w-full rounded-full bg-purple-500/40 opacity-75 animate-ping" />
+      <span className="absolute inline-flex h-full w-full rounded-full bg-blue-500/30 opacity-75 animate-ping" />
       <svg
         viewBox="0 0 24 24"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="w-5 h-5 text-purple-300 relative z-10 animate-pulse"
+        className="w-5 h-5 text-blue-300 relative z-10 animate-pulse"
       >
         <path
           d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
@@ -188,7 +188,7 @@ export const AiSentinelPulse: React.FC<{ className?: string }> = ({ className = 
           strokeWidth="1.5"
           strokeLinejoin="round"
         />
-        <circle cx="12" cy="12" r="2.5" fill="#ffffff" />
+        <circle cx="12" cy="12" r="2.5" fill="#f59e0b" />
       </svg>
     </div>
   );

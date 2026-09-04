@@ -200,17 +200,17 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
         }
       }}
     >
-      <div className="relative w-full max-w-2xl bg-[#0b0f22] border border-indigo-500/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-2xl bg-[#121217] border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="px-6 py-4 bg-[#0e1329] border-b border-indigo-950/80 flex items-center justify-between">
+        <div className="px-6 py-4 bg-[#18181f] border-b border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md">
+            <div className="p-2 rounded-xl bg-blue-600 text-white shadow-md shadow-blue-600/25">
               <Plus className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base font-bold text-white">Report Campus Infrastructure Problem</h2>
-              <p className="text-xs text-indigo-300/70">
+              <p className="text-xs text-zinc-400">
                 Reporting as <span className="font-semibold text-white">{currentUser?.name || 'Campus Member'}</span> ({currentUser?.role || 'STUDENT'})
               </p>
             </div>
@@ -218,21 +218,21 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
           <button
             type="button"
             onClick={handleClose}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Step Navigation Tabs */}
-        <div className="flex items-center border-b border-indigo-950/80 bg-[#070a1a] px-6 text-xs font-medium">
+        <div className="flex items-center border-b border-zinc-800 bg-[#09090b] px-6 text-xs font-medium overflow-x-auto scrollbar-none touch-scroll">
           <button
             type="button"
             onClick={() => setActiveTab('details')}
-            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+            className={`py-3 px-4 border-b-2 flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
               activeTab === 'details'
-                ? 'border-purple-500 text-purple-300 font-semibold'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-blue-500 text-blue-400 font-semibold'
+                : 'border-transparent text-zinc-400 hover:text-zinc-200'
             }`}
           >
             <Tag className="w-3.5 h-3.5" />
@@ -242,10 +242,10 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
           <button
             type="button"
             onClick={() => setActiveTab('diagnostics')}
-            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+            className={`py-3 px-4 border-b-2 flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
               activeTab === 'diagnostics'
-                ? 'border-purple-500 text-purple-300 font-semibold'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-blue-500 text-blue-400 font-semibold'
+                : 'border-transparent text-zinc-400 hover:text-zinc-200'
             }`}
           >
             <Lightbulb className="w-3.5 h-3.5" />
@@ -255,10 +255,10 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
           <button
             type="button"
             onClick={() => setActiveTab('evidence')}
-            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+            className={`py-3 px-4 border-b-2 flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
               activeTab === 'evidence'
-                ? 'border-purple-500 text-purple-300 font-semibold'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-blue-500 text-blue-400 font-semibold'
+                : 'border-transparent text-zinc-400 hover:text-zinc-200'
             }`}
           >
             <Upload className="w-3.5 h-3.5" />
@@ -271,11 +271,11 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
           
           {/* Active AI Processing Banner */}
           {isSubmitting && (
-            <div className="p-3.5 rounded-xl bg-purple-950/60 border border-purple-500/40 text-xs text-purple-200 flex items-center gap-3 animate-pulse">
+            <div className="p-3.5 rounded-xl bg-blue-950/40 border border-blue-500/30 text-xs text-blue-200 flex items-center gap-3 animate-pulse">
               <AiSentinelPulse />
               <div className="flex-1">
                 <p className="font-semibold text-white">AI Sentinel Inspection in Progress...</p>
-                <p className="text-[11px] text-purple-300/80 mt-0.5">
+                <p className="text-[11px] text-blue-300/80 mt-0.5">
                   Verifying problem symptoms, evaluating authenticity, and checking duplicate candidates.
                 </p>
               </div>
@@ -393,7 +393,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
               {/* Title */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Issue Title / Headline <span className="text-purple-400">*</span>
+                  Issue Title / Headline <span className="text-blue-400">*</span>
                 </label>
                 <input
                   type="text"
@@ -401,15 +401,15 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
                   placeholder="e.g. Projector in CS 201 shutting down due to overheating"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#070a1a] border border-indigo-950 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-[#09090b] border border-zinc-800 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
                 />
               </div>
 
               {/* Location Input */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-indigo-400" />
-                  Location / Classroom / Lab <span className="text-purple-400">*</span>
+                  <MapPin className="w-3.5 h-3.5 text-blue-400" />
+                  Location / Classroom / Lab <span className="text-blue-400">*</span>
                 </label>
                 <input
                   type="text"
@@ -417,7 +417,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
                   placeholder="e.g. CS 201, Mechanical Block Lab 3, Library 2nd Floor"
                   value={locationDetails}
                   onChange={(e) => setLocationDetails(e.target.value)}
-                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-[#070a1a] border border-indigo-950 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-[#09090b] border border-zinc-800 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
                 />
               </div>
 
@@ -426,16 +426,16 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-semibold text-slate-300">
-                      Category <span className="text-purple-400">*</span>
+                      Category <span className="text-blue-400">*</span>
                     </label>
-                    <span className="text-[10px] text-purple-400 font-medium flex items-center gap-1">
+                    <span className="text-[10px] text-blue-400 font-medium flex items-center gap-1">
                       <Sparkles className="w-3 h-3" /> AI Assisted
                     </span>
                   </div>
                   <select
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
-                    className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-[#070a1a] border border-indigo-950 text-sm text-slate-200 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none cursor-pointer"
+                    className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-[#09090b] border border-zinc-800 text-sm text-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer"
                   >
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -447,12 +447,12 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Urgency / Priority Level <span className="text-purple-400">*</span>
+                    Urgency / Priority Level <span className="text-blue-400">*</span>
                   </label>
                   <select
                     value={priority}
                     onChange={(e) => setPriority(e.target.value as IssuePriority)}
-                    className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-[#070a1a] border border-indigo-950 text-sm text-slate-200 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none cursor-pointer"
+                    className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-[#09090b] border border-zinc-800 text-sm text-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer"
                   >
                     <option value="LOW">Low (Cosmetic / Minor)</option>
                     <option value="MEDIUM">Medium (Degraded performance)</option>
@@ -465,12 +465,12 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
               {/* Department */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Department / Academic Unit <span className="text-purple-400">*</span>
+                  Department / Academic Unit <span className="text-blue-400">*</span>
                 </label>
                 <select
                   value={departmentId}
                   onChange={(e) => setDepartmentId(e.target.value)}
-                  className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-[#070a1a] border border-indigo-950 text-sm text-slate-200 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none cursor-pointer"
+                  className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-[#09090b] border border-zinc-800 text-sm text-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer"
                 >
                   {departments.map((d) => (
                     <option key={d.id} value={d.id}>
@@ -490,7 +490,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
                   <select
                     value={assetId}
                     onChange={(e) => setAssetId(e.target.value)}
-                    className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-[#070a1a] border border-indigo-950 text-sm text-slate-200 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none cursor-pointer"
+                    className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-[#09090b] border border-zinc-800 text-sm text-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer"
                   >
                     <option value="">-- None / General Facility --</option>
                     {assets.map((ast) => (
@@ -505,7 +505,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
               {/* Description */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Observed Problem & Symptoms <span className="text-purple-400">*</span>
+                  Observed Problem & Symptoms <span className="text-blue-400">*</span>
                 </label>
                 <textarea
                   required
@@ -513,7 +513,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
                   placeholder="Describe what happens, when it occurs, and any error codes or sounds..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 min-h-[110px] rounded-xl bg-[#070a1a] border border-indigo-950 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none resize-none leading-relaxed"
+                  className="w-full px-3.5 py-2.5 min-h-[110px] rounded-xl bg-[#09090b] border border-zinc-800 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none resize-none leading-relaxed"
                 />
               </div>
 
@@ -523,8 +523,8 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
           {/* TAB 2: DIAGNOSTICS */}
           {activeTab === 'diagnostics' && (
             <div className="space-y-4">
-              <div className="p-3.5 rounded-xl bg-indigo-950/40 border border-indigo-500/20 text-xs text-indigo-300/90 leading-relaxed flex items-start gap-2.5">
-                <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+              <div className="p-3.5 rounded-xl bg-zinc-900/80 border border-zinc-800 text-xs text-zinc-300 leading-relaxed flex items-start gap-2.5">
+                <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
                 <span>
                   Optional diagnostic information helps campus maintenance crews bring the right replacement parts and tools on their first visit.
                 </span>
@@ -540,7 +540,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
                   placeholder="e.g. Blown fuse, loose HDMI cable, clogged air filter, power surge"
                   value={possibleCause}
                   onChange={(e) => setPossibleCause(e.target.value)}
-                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-[#070a1a] border border-indigo-950 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-[#09090b] border border-zinc-800 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
                 />
               </div>
 
@@ -554,7 +554,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
                   placeholder="e.g. Replace projector lamp bulb, reset circuit breaker, repair water pipe seal"
                   value={suggestedSolution}
                   onChange={(e) => setSuggestedSolution(e.target.value)}
-                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-[#070a1a] border border-indigo-950 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-[#09090b] border border-zinc-800 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
                 />
               </div>
 
@@ -567,7 +567,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
                   placeholder="e.g. Today during 9:30 AM lecture, or Past 2 days"
                   value={occurredAt}
                   onChange={(e) => setOccurredAt(e.target.value)}
-                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-[#070a1a] border border-indigo-950 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-[#09090b] border border-zinc-800 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
                 />
               </div>
             </div>
@@ -581,15 +581,15 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
               </label>
               
               {/* Clean Upload Dropzone */}
-              <div className="p-8 rounded-2xl border-2 border-dashed border-indigo-500/30 bg-indigo-950/20 text-center hover:border-purple-500/60 transition-colors relative">
+              <div className="p-8 rounded-2xl border-2 border-dashed border-zinc-700 bg-zinc-900/30 text-center hover:border-blue-500/60 transition-colors relative">
                 {isUploadingImage ? (
-                  <div className="flex flex-col items-center justify-center py-4 text-purple-400">
+                  <div className="flex flex-col items-center justify-center py-4 text-blue-400">
                     <CompactPulseSpinner size={32} className="mb-2" />
                     <p className="text-xs font-semibold">Uploading to secure storage...</p>
                   </div>
                 ) : (
                   <>
-                    <Upload className="w-10 h-10 text-indigo-400 mx-auto mb-3" />
+                    <Upload className="w-10 h-10 text-zinc-400 mx-auto mb-3" />
                     <p className="text-xs font-semibold text-slate-200">Upload photo from your computer or phone camera</p>
                     <p className="text-[11px] text-slate-400 mt-1 mb-4">Supports PNG, JPG, JPEG, WebP up to 5MB</p>
                     <input
@@ -617,14 +617,14 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
                           }
                         }
                       }}
-                      className="text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-500 cursor-pointer"
+                      className="text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer"
                     />
                   </>
                 )}
               </div>
 
               {selectedImage && (
-                <div className="flex items-center justify-between p-3 rounded-xl bg-purple-950/40 border border-purple-500/30 text-xs text-purple-200">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/80 border border-zinc-700 text-xs text-zinc-200">
                   <span className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-400" />
                     Photo attached & verified
@@ -642,13 +642,13 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
           )}
 
           {/* Footer Actions */}
-          <div className="pt-4 border-t border-indigo-950/80 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="pt-4 border-t border-zinc-800 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               {activeTab !== 'details' && (
                 <button
                   type="button"
                   onClick={() => setActiveTab(activeTab === 'evidence' ? 'diagnostics' : 'details')}
-                  className="flex-1 sm:flex-none px-3.5 py-2.5 min-h-[40px] rounded-xl bg-slate-900 hover:bg-slate-800 text-xs text-slate-300 border border-slate-800 transition-colors cursor-pointer"
+                  className="flex-1 sm:flex-none px-3.5 py-2.5 min-h-[44px] rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-300 border border-zinc-700 transition-colors cursor-pointer"
                 >
                   Previous
                 </button>
@@ -657,7 +657,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
                 <button
                   type="button"
                   onClick={() => setActiveTab(activeTab === 'details' ? 'diagnostics' : 'evidence')}
-                  className="flex-1 sm:flex-none px-3.5 py-2.5 min-h-[40px] rounded-xl bg-indigo-950/60 hover:bg-indigo-900/60 text-xs text-indigo-300 border border-indigo-800/40 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 sm:flex-none px-3.5 py-2.5 min-h-[44px] rounded-xl bg-blue-950/60 hover:bg-blue-900/60 text-xs text-blue-300 border border-blue-800/40 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   Next Step <ArrowRight className="w-3 h-3" />
                 </button>
@@ -668,7 +668,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-3.5 py-2 min-h-[40px] rounded-xl text-xs text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 border border-slate-800/60 hover:border-rose-500/30 transition-all flex items-center gap-1.5 cursor-pointer"
+                className="px-3.5 py-2 min-h-[44px] rounded-xl text-xs text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 border border-zinc-800 hover:border-rose-500/30 transition-all flex items-center gap-1.5 cursor-pointer"
                 title="Clear all entered form fields"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -677,14 +677,14 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-4 py-2 min-h-[40px] rounded-xl text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
+                className="px-4 py-2 min-h-[44px] rounded-xl text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full sm:w-auto px-5 py-2.5 min-h-[42px] rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 shadow-lg shadow-purple-600/30 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-5 py-2.5 min-h-[44px] rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/30 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
                   <>

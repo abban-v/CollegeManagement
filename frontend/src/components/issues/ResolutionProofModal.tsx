@@ -54,10 +54,10 @@ export const ResolutionProofModal: React.FC<ResolutionProofModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6">
-      <div className="relative w-full max-w-xl bg-[#0a0f24] border border-emerald-500/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="relative w-full max-w-xl bg-[#121217] border border-emerald-500/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
         
         {/* Header */}
-        <div className="px-6 py-4 bg-[#0d1430] border-b border-emerald-950/80 flex items-center justify-between">
+        <div className="px-6 py-4 bg-[#18181f] border-b border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-emerald-950/80 text-emerald-400 border border-emerald-500/30">
               <ShieldCheck className="w-5 h-5" />
@@ -69,7 +69,7 @@ export const ResolutionProofModal: React.FC<ResolutionProofModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -172,7 +172,7 @@ export const ResolutionProofModal: React.FC<ResolutionProofModalProps> = ({
                 setNotes(e.target.value);
                 setError('');
               }}
-              className="w-full px-3.5 py-2.5 min-h-[100px] rounded-xl bg-[#060a17] border border-slate-800 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none resize-none leading-relaxed"
+              className="w-full px-3.5 py-2.5 min-h-[100px] rounded-xl bg-[#09090b] border border-zinc-800 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none resize-none leading-relaxed"
             />
           </div>
 
@@ -184,17 +184,17 @@ export const ResolutionProofModal: React.FC<ResolutionProofModalProps> = ({
           )}
 
           {/* Actions */}
-          <div className="pt-3 border-t border-slate-800/80 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
+          <div className="pt-3 border-t border-zinc-800 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 min-h-[40px] rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
+              className="px-4 py-2.5 min-h-[44px] rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-[0_0_18px_rgba(16,185,129,0.35)] transition-all cursor-pointer"
+              className="px-5 py-2.5 min-h-[44px] rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-600/30 transition-all cursor-pointer"
             >
               Submit Proof & Resolve Issue
             </button>

@@ -25,7 +25,7 @@ export const EmptyStateIllustration: React.FC<EmptyStateProps> = ({
       {/* SVG Canvas Container */}
       <div className="relative w-44 h-44 sm:w-52 sm:h-52 mb-4 select-none">
         {/* Ambient Radial Glow */}
-        <div className="absolute inset-4 rounded-full bg-gradient-to-tr from-indigo-600/20 via-purple-600/20 to-pink-600/10 blur-2xl pointer-events-none" />
+        <div className="absolute inset-4 rounded-full bg-gradient-to-tr from-blue-600/20 via-emerald-600/15 to-amber-600/10 blur-2xl pointer-events-none" />
 
         {type === 'issues' && (
           <svg
@@ -35,7 +35,7 @@ export const EmptyStateIllustration: React.FC<EmptyStateProps> = ({
             className="w-full h-full drop-shadow-xl"
           >
             {/* Campus Architectural Floor Grid */}
-            <g stroke="#6366f1" strokeOpacity="0.25" strokeWidth="1">
+            <g stroke="#3b82f6" strokeOpacity="0.25" strokeWidth="1">
               <path d="M 30 140 L 100 180 L 170 140 L 100 100 Z" fill="#0f172a" fillOpacity="0.6" />
               <path d="M 50 128 L 120 168" strokeDasharray="3 3" />
               <path d="M 80 112 L 150 152" strokeDasharray="3 3" />
@@ -46,15 +46,15 @@ export const EmptyStateIllustration: React.FC<EmptyStateProps> = ({
             <path
               d="M 100 60 L 130 78 L 130 130 L 100 148 L 70 130 L 70 78 Z"
               fill="url(#towerGrad)"
-              stroke="#a855f7"
+              stroke="#3b82f6"
               strokeWidth="1.5"
             />
             {/* Tower Facet shading */}
-            <path d="M 100 60 L 130 78 L 130 130 L 100 148 Z" fill="#6366f1" fillOpacity="0.15" />
+            <path d="M 100 60 L 130 78 L 130 130 L 100 148 Z" fill="#2563eb" fillOpacity="0.15" />
 
             {/* Floating Signal Rings */}
-            <circle cx="100" cy="55" r="16" stroke="#c084fc" strokeOpacity="0.4" strokeWidth="1.5" strokeDasharray="4 4" className="animate-spin origin-center" style={{ transformOrigin: '100px 55px', animationDuration: '12s' }} />
-            <circle cx="100" cy="55" r="28" stroke="#818cf8" strokeOpacity="0.25" strokeWidth="1" strokeDasharray="2 4" className="animate-spin origin-center" style={{ transformOrigin: '100px 55px', animationDuration: '18s' }} />
+            <circle cx="100" cy="55" r="16" stroke="#60a5fa" strokeOpacity="0.4" strokeWidth="1.5" strokeDasharray="4 4" className="animate-spin origin-center" style={{ transformOrigin: '100px 55px', animationDuration: '12s' }} />
+            <circle cx="100" cy="55" r="28" stroke="#3b82f6" strokeOpacity="0.25" strokeWidth="1" strokeDasharray="2 4" className="animate-spin origin-center" style={{ transformOrigin: '100px 55px', animationDuration: '18s' }} />
 
             {/* Green Verified Beacon */}
             <circle cx="100" cy="55" r="6" fill="#10b981" className="animate-pulse" />
@@ -62,23 +62,23 @@ export const EmptyStateIllustration: React.FC<EmptyStateProps> = ({
 
             {/* Floating Satellite Nodes */}
             <g className="animate-bounce" style={{ animationDuration: '4s' }}>
-              <rect x="42" y="70" width="14" height="14" rx="4" fill="#1e1b4b" stroke="#818cf8" strokeWidth="1.2" />
+              <rect x="42" y="70" width="14" height="14" rx="4" fill="#0f172a" stroke="#3b82f6" strokeWidth="1.2" />
               <path d="M 45 77 L 53 77" stroke="#38bdf8" strokeWidth="1.5" />
             </g>
 
             <g className="animate-bounce" style={{ animationDuration: '3.5s', animationDelay: '1s' }}>
-              <rect x="144" y="85" width="14" height="14" rx="4" fill="#1e1b4b" stroke="#ec4899" strokeWidth="1.2" />
-              <path d="M 148 92 L 154 92" stroke="#f472b6" strokeWidth="1.5" />
+              <rect x="144" y="85" width="14" height="14" rx="4" fill="#0f172a" stroke="#f59e0b" strokeWidth="1.2" />
+              <path d="M 148 92 L 154 92" stroke="#fbbf24" strokeWidth="1.5" />
             </g>
 
             {/* Sparkle Nodes */}
-            <circle cx="125" cy="38" r="1.5" fill="#fbcfe8" className="animate-ping" style={{ animationDuration: '2.5s' }} />
-            <circle cx="68" cy="48" r="2" fill="#c7d2fe" className="animate-ping" style={{ animationDuration: '3.2s' }} />
+            <circle cx="125" cy="38" r="1.5" fill="#93c5fd" className="animate-ping" style={{ animationDuration: '2.5s' }} />
+            <circle cx="68" cy="48" r="2" fill="#a7f3d0" className="animate-ping" style={{ animationDuration: '3.2s' }} />
 
             <defs>
               <linearGradient id="towerGrad" x1="70" y1="60" x2="130" y2="148" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#1e1b4b" />
-                <stop offset="1" stopColor="#090d20" />
+                <stop stopColor="#1e293b" />
+                <stop offset="1" stopColor="#090d16" />
               </linearGradient>
             </defs>
           </svg>
@@ -92,22 +92,22 @@ export const EmptyStateIllustration: React.FC<EmptyStateProps> = ({
             className="w-full h-full drop-shadow-xl"
           >
             {/* Search Radar Beam */}
-            <circle cx="95" cy="95" r="50" stroke="#818cf8" strokeWidth="2" strokeOpacity="0.4" strokeDasharray="6 6" />
-            <circle cx="95" cy="95" r="30" stroke="#c084fc" strokeWidth="1.5" strokeOpacity="0.5" />
-            <circle cx="95" cy="95" r="10" fill="#6366f1" fillOpacity="0.2" />
+            <circle cx="95" cy="95" r="50" stroke="#3b82f6" strokeWidth="2" strokeOpacity="0.4" strokeDasharray="6 6" />
+            <circle cx="95" cy="95" r="30" stroke="#60a5fa" strokeWidth="1.5" strokeOpacity="0.5" />
+            <circle cx="95" cy="95" r="10" fill="#2563eb" fillOpacity="0.2" />
 
             {/* Magnifying Glass Lens Frame */}
             <circle cx="95" cy="95" r="42" stroke="url(#searchGrad)" strokeWidth="4" />
             <line x1="126" y1="126" x2="165" y2="165" stroke="url(#searchGrad)" strokeWidth="6" strokeLinecap="round" />
 
             {/* Empty target ping */}
-            <circle cx="95" cy="95" r="3" fill="#f43f5e" className="animate-ping" />
+            <circle cx="95" cy="95" r="3" fill="#f59e0b" className="animate-ping" />
             <circle cx="95" cy="95" r="2" fill="#fff" />
 
             <defs>
               <linearGradient id="searchGrad" x1="60" y1="60" x2="165" y2="165" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#c084fc" />
-                <stop offset="1" stopColor="#6366f1" />
+                <stop stopColor="#60a5fa" />
+                <stop offset="1" stopColor="#2563eb" />
               </linearGradient>
             </defs>
           </svg>
@@ -123,7 +123,7 @@ export const EmptyStateIllustration: React.FC<EmptyStateProps> = ({
             {/* Shield Outline */}
             <path
               d="M 100 35 L 145 55 C 145 110 100 155 100 155 C 100 155 55 110 55 55 Z"
-              fill="#0d1430"
+              fill="#0f172a"
               stroke="url(#shieldGrad)"
               strokeWidth="2.5"
             />
@@ -138,7 +138,7 @@ export const EmptyStateIllustration: React.FC<EmptyStateProps> = ({
             <defs>
               <linearGradient id="shieldGrad" x1="55" y1="35" x2="145" y2="155" gradientUnits="userSpaceOnUse">
                 <stop stopColor="#34d399" />
-                <stop offset="1" stopColor="#6366f1" />
+                <stop offset="1" stopColor="#2563eb" />
               </linearGradient>
             </defs>
           </svg>

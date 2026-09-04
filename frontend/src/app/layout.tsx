@@ -16,7 +16,7 @@ export default function RootLayout({
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
         suppressHydrationWarning
-        className="antialiased min-h-screen bg-[#060813] text-slate-100 selection:bg-purple-500/30 selection:text-purple-200"
+        className="antialiased min-h-screen bg-[#09090b] text-slate-100 selection:bg-blue-500/30 selection:text-blue-200"
       >
         <AppProvider>
           {children}

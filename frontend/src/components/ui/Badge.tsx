@@ -43,15 +43,15 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
       );
     case 'IN_PROGRESS':
       return (
-        <span className={`inline-flex items-center rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-500/40 ${sizeClasses}`}>
-          <PlayCircle className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+        <span className={`inline-flex items-center rounded-full bg-blue-950/80 text-blue-300 border border-blue-500/40 ${sizeClasses}`}>
+          <PlayCircle className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
           In Progress
         </span>
       );
     case 'RESOLUTION_SUBMITTED':
       return (
-        <span className={`inline-flex items-center rounded-full bg-purple-950/90 text-purple-300 border border-purple-500/50 ${sizeClasses}`}>
-          <Send className="w-3.5 h-3.5 text-purple-400" />
+        <span className={`inline-flex items-center rounded-full bg-teal-950/90 text-teal-300 border border-teal-500/50 ${sizeClasses}`}>
+          <Send className="w-3.5 h-3.5 text-teal-400" />
           Resolution Submitted
         </span>
       );

@@ -129,22 +129,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden bg-[#060813] text-slate-100 selection:bg-purple-500/30">
-      {/* Dynamic Glowing Idle Ambient Orbs */}
-      <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-gradient-to-br from-indigo-600/30 via-purple-600/20 to-transparent rounded-full blur-[110px] pointer-events-none animate-float-slow animate-pulse-glow" />
-      <div className="absolute bottom-1/4 right-1/4 translate-x-1/3 translate-y-1/3 w-[600px] h-[600px] bg-gradient-to-tl from-purple-700/30 via-pink-600/20 to-transparent rounded-full blur-[120px] pointer-events-none animate-float-reverse animate-pulse-glow" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-indigo-500/15 rounded-full blur-[100px] pointer-events-none animate-pulse-glow" />
+    <div className="min-h-screen flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden bg-[#09090b] text-slate-100 selection:bg-blue-500/30">
+      {/* Dynamic Glowing Idle Ambient Orbs (Fusion: Cobalt, Amber, Blue) */}
+      <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-gradient-to-br from-blue-600/25 via-blue-900/15 to-transparent rounded-full blur-[110px] pointer-events-none animate-float-slow animate-pulse-glow" />
+      <div className="absolute bottom-1/4 right-1/4 translate-x-1/3 translate-y-1/3 w-[600px] h-[600px] bg-gradient-to-tl from-amber-600/15 via-slate-800/15 to-transparent rounded-full blur-[120px] pointer-events-none animate-float-reverse animate-pulse-glow" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none animate-pulse-glow" />
 
       {/* Main Center Card */}
       <div className="relative z-10 w-full max-w-sm">
         
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3.5 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-[0_0_35px_rgba(124,58,237,0.5)] mb-3 border border-indigo-400/40 animate-float-slow">
+          <div className="inline-flex items-center justify-center p-3.5 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-600 text-white shadow-[0_0_35px_rgba(37,99,235,0.4)] mb-3 border border-blue-400/40 animate-float-slow">
             <ShieldAlert className="w-7 h-7" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            SLASH<span className="text-purple-400">FORGE</span>
+            SLASH<span className="text-blue-400">FORGE</span>
           </h1>
           <p className="text-xs text-slate-400 font-medium mt-1">
             College of Engineering Trivandrum
@@ -152,16 +152,16 @@ export default function LoginPage() {
         </div>
 
         {/* Card */}
-        <div className="rounded-3xl glass-panel p-6 sm:p-8 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] border border-indigo-500/30 backdrop-blur-2xl transition-all duration-300 hover:border-purple-500/50 hover:shadow-[0_0_40px_-5px_rgba(124,58,237,0.35)]">
+        <div className="rounded-3xl glass-panel p-6 sm:p-8 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] border border-zinc-800 backdrop-blur-2xl transition-all duration-300 hover:border-zinc-700 hover:shadow-[0_0_40px_-5px_rgba(37,99,235,0.25)]">
           
           <div className="mb-6 text-center">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-950/70 border border-purple-500/40 text-purple-300 text-[11px] font-semibold mb-2 shadow-[0_0_15px_rgba(168,85,247,0.25)]">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-950/70 border border-blue-500/40 text-blue-300 text-[11px] font-semibold mb-2 shadow-[0_0_15px_rgba(37,99,235,0.25)]">
               <Sparkles className="w-3 h-3" />
               Institutional Authentication
             </div>
             <h2 className="text-base font-bold text-white">Campus Sign In</h2>
             <p className="text-xs text-slate-400 mt-1">
-              Use your official <span className="text-purple-300 font-semibold">@cet.ac.in</span> account
+              Use your official <span className="text-blue-300 font-semibold">@cet.ac.in</span> account
             </p>
           </div>
 
@@ -179,7 +179,7 @@ export default function LoginPage() {
               type="button"
               onClick={handleGoogleSignInClick}
               disabled={isSubmitting}
-              className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-[#0d132b] via-[#121a3b] to-[#0d132b] hover:from-[#151c42] hover:via-[#1c2454] hover:to-[#151c42] border border-indigo-500/40 hover:border-purple-500/80 text-slate-100 hover:text-white font-bold text-xs transition-all duration-300 flex items-center justify-center gap-3 shadow-[0_0_25px_rgba(99,102,241,0.25)] hover:shadow-[0_0_35px_rgba(168,85,247,0.5)] active:scale-[0.98] cursor-pointer group"
+              className="w-full py-3.5 px-5 rounded-2xl bg-[#141417] hover:bg-[#1a1a20] border border-zinc-700 hover:border-blue-500/80 text-slate-100 hover:text-white font-bold text-xs transition-all duration-300 flex items-center justify-center gap-3 shadow-[0_0_25px_rgba(0,0,0,0.4)] hover:shadow-[0_0_30px_rgba(37,99,235,0.35)] active:scale-[0.98] cursor-pointer group"
             >
               {isSubmitting ? (
                 <>
@@ -224,10 +224,10 @@ export default function LoginPage() {
       {/* Google SSO Setup Guidance Modal */}
       {showSetupModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="relative w-full max-w-md bg-[#0a0f24] border border-indigo-500/30 rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-indigo-950">
+          <div className="relative w-full max-w-md bg-[#121217] border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
               <div className="flex items-center gap-2 text-white font-bold text-sm">
-                <Lock className="w-4 h-4 text-purple-400" />
+                <Lock className="w-4 h-4 text-blue-400" />
                 Google Client ID Required
               </div>
               <button
@@ -240,9 +240,9 @@ export default function LoginPage() {
 
             <div className="space-y-2.5 text-xs text-slate-300">
               <p>
-                Add your Google OAuth Client ID to <code className="bg-black/50 px-1 py-0.5 rounded text-purple-300 font-mono">frontend/.env.local</code>:
+                Add your Google OAuth Client ID to <code className="bg-black/50 px-1 py-0.5 rounded text-blue-300 font-mono">frontend/.env.local</code>:
               </p>
-              <pre className="p-3 rounded-xl bg-black/70 border border-indigo-950 text-[11px] text-emerald-400 font-mono overflow-x-auto">
+              <pre className="p-3 rounded-xl bg-black/70 border border-zinc-800 text-[11px] text-emerald-400 font-mono overflow-x-auto">
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-id.apps.googleusercontent.com
               </pre>
             </div>
@@ -250,7 +250,7 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-id.apps.googleusercontent.com
             <button
               type="button"
               onClick={() => setShowSetupModal(false)}
-              className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs cursor-pointer shadow-lg"
+              className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs cursor-pointer shadow-lg"
             >
               Close
             </button>
