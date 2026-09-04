@@ -135,7 +135,7 @@ export default function IssueDetailPage() {
         x: rect ? rect.left + rect.width / 2 : undefined,
         y: rect ? rect.top + rect.height / 2 : undefined,
         variant: 'cobalt',
-        particleCount: 30,
+        intensity: 'pulse',
       });
     }
     toggleAffected(issue.id);
@@ -147,7 +147,7 @@ export default function IssueDetailPage() {
       x: rect ? rect.left + rect.width / 2 : undefined,
       y: rect ? rect.top + rect.height / 2 : undefined,
       variant: 'emerald',
-      particleCount: 40,
+      intensity: 'celebration',
     });
     verifyResolution(issue.id);
   };

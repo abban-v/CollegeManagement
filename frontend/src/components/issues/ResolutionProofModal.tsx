@@ -44,7 +44,7 @@ export const ResolutionProofModal: React.FC<ResolutionProofModalProps> = ({
     if (success) {
       triggerQuantumBurst({
         variant: 'emerald',
-        particleCount: 45,
+        intensity: 'celebration',
       });
       onClose();
     }

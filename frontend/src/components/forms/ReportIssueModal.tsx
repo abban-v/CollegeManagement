@@ -161,7 +161,7 @@ export const ReportIssueModal: React.FC<ReportIssueModalProps> = ({ isOpen, onCl
       } else {
         triggerQuantumBurst({
           variant: 'cobalt',
-          particleCount: 45,
+          intensity: 'celebration',
         });
       }
 

@@ -136,7 +136,7 @@ export default function AssetsPage() {
     };
 
     addAsset(createdAsset);
-    triggerQuantumBurst({ variant: 'emerald', particleCount: 40 });
+    triggerQuantumBurst({ variant: 'emerald', intensity: 'celebration' });
     setIsAddAssetOpen(false);
     setNewAssetName('');
     setNewAssetTag('');

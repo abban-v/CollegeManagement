@@ -102,9 +102,11 @@ export default function LoginPage() {
                 });
 
                 if (authRes.data) {
-                  triggerQuantumBurst({ variant: 'cobalt', particleCount: 45 });
+                  triggerQuantumBurst({ variant: 'cobalt', intensity: 'celebration' });
                   setUserFromAuthResponse(authRes.data);
-                  router.push('/');
+                  setTimeout(() => {
+                    router.push('/');
+                  }, 900);
                 } else {
                   setErrorMessage(
                     authRes.error || 'Access restricted. Only official @cet.ac.in college accounts are permitted.'
