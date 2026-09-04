@@ -3,6 +3,7 @@ import { successResponse, errorResponse, sendJSON } from "@/lib/api";
 import { getSession } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { UserRole } from "@prisma/client";
+import { SAFE_USER_SELECT } from "@/lib/user-sanitizer";
 
 /**
  * GET /api/v1/auth/session
@@ -28,14 +29,16 @@ export async function GET(request: NextRequest) {
 
     const shouldBeAdmin = ADMIN_EMAILS.includes(email);
 
-    // Fetch live user from database
+    // Fetch live user from database - explicitly exclude sensitive fields
     let dbUser = await prisma.user.findUnique({
       where: { id: session.userId },
+      select: SAFE_USER_SELECT,
     });
 
     if (!dbUser && email) {
       dbUser = await prisma.user.findUnique({
         where: { email },
+        select: SAFE_USER_SELECT,
       });
     }
 
@@ -46,6 +49,7 @@ export async function GET(request: NextRequest) {
       dbUser = await prisma.user.update({
         where: { id: dbUser.id },
         data: { role: UserRole.ADMIN },
+        select: SAFE_USER_SELECT,
       });
       activeRole = UserRole.ADMIN;
     } else if (shouldBeAdmin) {

@@ -3,18 +3,13 @@ import { UserRole } from "@prisma/client";
 import prisma from "@/lib/db";
 import { errorResponse, getErrorMessage, sendJSON, successResponse } from "@/lib/api";
 import { withRole } from "@/lib/auth";
+import { SAFE_USER_SELECT } from "@/lib/user-sanitizer";
 
 export const GET = withRole("ADMIN", "OFFICIAL", "MODERATOR")(async () => {
   try {
     const users = await prisma.user.findMany({
       orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-      },
+      select: SAFE_USER_SELECT,
     });
 
     return sendJSON(successResponse({ users }, 200));
@@ -44,7 +39,7 @@ export const POST = withRole("ADMIN")(async (request: NextRequest) => {
       const updated = await prisma.user.update({
         where: { id: existing.id },
         data: { role, ...(name ? { name: displayName } : {}) },
-        select: { id: true, email: true, name: true, role: true, createdAt: true },
+        select: SAFE_USER_SELECT,
       });
       return sendJSON(successResponse({ user: updated, message: `Updated user role to ${role}` }, 200));
     }
@@ -60,7 +55,7 @@ export const POST = withRole("ADMIN")(async (request: NextRequest) => {
         password: hashedPassword,
         role,
       },
-      select: { id: true, email: true, name: true, role: true, createdAt: true },
+      select: SAFE_USER_SELECT,
     });
 
     return sendJSON(successResponse({ user: newUser, message: `User added with role ${role}` }, 201));
@@ -86,13 +81,7 @@ export const PATCH = withRole("ADMIN")(async (request: NextRequest, _context, se
     const user = await prisma.user.update({
       where: { id: userId },
       data: { role },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-      },
+      select: SAFE_USER_SELECT,
     });
 
     return sendJSON(successResponse({ user }, 200));

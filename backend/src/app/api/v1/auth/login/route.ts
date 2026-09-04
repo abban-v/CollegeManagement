@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { getErrorMessage, successResponse, errorResponse, sendJSON, formatZodError } from "@/lib/api";
 import { createSession } from "@/lib/auth";
 import { checkRateLimit, getLoginRateLimitIdentifier } from "@/lib/middleware/rateLimit";
+import { SAFE_USER_SELECT } from "@/lib/user-sanitizer";
 
 /**
  * POST /api/v1/auth/login
@@ -16,6 +17,7 @@ import { checkRateLimit, getLoginRateLimitIdentifier } from "@/lib/middleware/ra
  * - Per-IP rate limiting (10 attempts per 10 seconds)
  * - Generic error messages to prevent email enumeration
  * - HTTP-only, Secure, SameSite cookies
+ * - Password field never exposed in responses
  */
 
 const LoginSchema = z.object({
@@ -42,7 +44,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find user by email
+    // Find user by email - need password for verification
     const user = await prisma.user.findUnique({
       where: { email },
     });
@@ -74,6 +76,7 @@ export async function POST(request: NextRequest) {
       role: user.role,
     });
 
+    // Return safe user data - never include password
     return sendJSON(
       successResponse(
         {
