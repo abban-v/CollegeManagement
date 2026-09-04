@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CampusRadarLoader } from '@/components/ui/CustomLoader';
+import { AmbientBackground } from '@/components/layout/AmbientBackground';
 
 export default function AssetsPage() {
   const router = useRouter();
@@ -145,9 +146,8 @@ export default function AssetsPage() {
 
   return (
     <div className="min-h-screen bg-[#0B0F17] text-slate-100 flex flex-col relative overflow-hidden">
-      {/* Dynamic Glowing Idle Ambient Orbs - Academic Emerald Theme */}
-      <div className="absolute top-10 left-10 w-[500px] h-[500px] bg-gradient-to-tr from-emerald-600/15 via-teal-600/10 to-transparent rounded-full blur-[120px] pointer-events-none animate-float-slow animate-pulse-glow" />
-      <div className="absolute top-1/2 right-0 w-[550px] h-[550px] bg-gradient-to-bl from-emerald-800/12 via-slate-800/20 to-transparent rounded-full blur-[130px] pointer-events-none animate-float-reverse animate-pulse-glow" />
+      {/* Dynamic Ambient Background with Telemetry Grid, Scanner, Dust Particles & Emerald Orbs */}
+      <AmbientBackground variant="emerald" />
 
       <Navbar />
 

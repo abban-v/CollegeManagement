@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { CampusRadarLoader } from '@/components/ui/CustomLoader';
+import { AmbientBackground } from '@/components/layout/AmbientBackground';
 
 interface AdminUserRecord {
   id: string;
@@ -167,9 +168,8 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#09090B] text-slate-100 flex flex-col relative overflow-hidden">
-      {/* Dynamic Ambient Mist - Linear Obsidian & Zinc Theme */}
-      <div className="absolute top-10 left-10 w-[500px] h-[500px] bg-gradient-to-tr from-zinc-700/10 via-zinc-800/8 to-transparent rounded-full blur-[120px] pointer-events-none animate-float-slow animate-pulse-glow" />
-      <div className="absolute top-1/2 right-0 w-[550px] h-[550px] bg-gradient-to-bl from-zinc-600/10 via-zinc-900/10 to-transparent rounded-full blur-[130px] pointer-events-none animate-float-reverse animate-pulse-glow" />
+      {/* Dynamic Ambient Background with Telemetry Grid, Scanner, Dust Particles & Linear Zinc Mist */}
+      <AmbientBackground variant="linear" />
 
       <Navbar />
 

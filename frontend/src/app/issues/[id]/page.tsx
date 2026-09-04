@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { CampusRadarLoader } from '@/components/ui/CustomLoader';
+import { AmbientBackground } from '@/components/layout/AmbientBackground';
 
 type FlagReason = 'spam' | 'duplicate' | 'inappropriate' | 'misleading' | 'other';
 
@@ -160,10 +161,8 @@ export default function IssueDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#09090b] text-slate-100 flex flex-col relative overflow-hidden">
-      {/* Dynamic Glowing Idle Ambient Orbs (Fusion: Cobalt, Amber, Slate) */}
-      <div className="absolute top-10 left-10 w-[500px] h-[500px] bg-gradient-to-tr from-blue-600/18 via-blue-900/15 to-transparent rounded-full blur-[120px] pointer-events-none animate-float-slow animate-pulse-glow" />
-      <div className="absolute top-1/2 right-0 w-[550px] h-[550px] bg-gradient-to-bl from-amber-600/12 via-slate-800/15 to-transparent rounded-full blur-[130px] pointer-events-none animate-float-reverse animate-pulse-glow" />
-      <div className="absolute bottom-10 left-1/4 w-[400px] h-[400px] bg-emerald-600/10 rounded-full blur-[100px] pointer-events-none animate-pulse-glow" />
+      {/* Dynamic Ambient Background with Telemetry Grid, Scanner, Dust Particles & Fusion Orbs */}
+      <AmbientBackground variant="fusion" />
 
       <Navbar />
 

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CompactPulseSpinner } from '@/components/ui/CustomLoader';
+import { AmbientBackground } from '@/components/layout/AmbientBackground';
 
 declare global {
   interface Window {
@@ -130,10 +131,8 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden bg-[#09090b] text-slate-100 selection:bg-blue-500/30">
-      {/* Dynamic Glowing Idle Ambient Orbs (Fusion: Cobalt, Amber, Blue) */}
-      <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-gradient-to-br from-blue-600/25 via-blue-900/15 to-transparent rounded-full blur-[110px] pointer-events-none animate-float-slow animate-pulse-glow" />
-      <div className="absolute bottom-1/4 right-1/4 translate-x-1/3 translate-y-1/3 w-[600px] h-[600px] bg-gradient-to-tl from-amber-600/15 via-slate-800/15 to-transparent rounded-full blur-[120px] pointer-events-none animate-float-reverse animate-pulse-glow" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none animate-pulse-glow" />
+      {/* Dynamic Ambient Background with Telemetry Grid, Scanner, Dust Particles & Fusion Orbs */}
+      <AmbientBackground variant="fusion" />
 
       {/* Main Center Card */}
       <div className="relative z-10 w-full max-w-sm">
