@@ -106,7 +106,7 @@ export default function LoginPage() {
                   setUserFromAuthResponse(authRes.data);
                   setTimeout(() => {
                     router.push('/');
-                  }, 900);
+                  }, 450);
                 } else {
                   setErrorMessage(
                     authRes.error || 'Access restricted. Only official @cet.ac.in college accounts are permitted.'
