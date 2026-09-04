@@ -191,3 +191,35 @@
   box-shadow: 0 0 25px rgba(124, 58, 237, 0.5);
   transform: translateY(-1px);
 }
+
+/* Hide scrollbar for clean touch-scrolling carousels & chip rows */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Smooth inertia scrolling on iOS Safari */
+.touch-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Modern subtle shimmer animation for loaded cards */
+@keyframes card-shimmer {
+  0% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.8;
+  }
+}
+
+.animate-card-shimmer {
+  animation: card-shimmer 3s ease-in-out infinite;
+}
+

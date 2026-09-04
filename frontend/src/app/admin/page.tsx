@@ -31,6 +31,7 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import Link from 'next/link';
+import { CampusRadarLoader } from '@/components/ui/CustomLoader';
 
 interface AdminUserRecord {
   id: string;
@@ -134,7 +135,11 @@ export default function AdminDashboardPage() {
   if (isLoadingAuth || !currentUser) {
     return (
       <div className="min-h-screen bg-[#060813] flex items-center justify-center text-purple-400">
-        <Loader2 className="w-8 h-8 animate-spin" />
+        <CampusRadarLoader
+          size="lg"
+          message="Loading administrative console..."
+          subMessage="Fetching work orders & moderation queue"
+        />
       </div>
     );
   }
@@ -228,10 +233,10 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 mb-6 border-b border-indigo-950/80 pb-3">
+        <div className="flex items-center gap-2 mb-6 border-b border-indigo-950/80 pb-3 overflow-x-auto scrollbar-none touch-scroll">
           <button
             onClick={() => setActiveTab('workorders')}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-all flex items-center gap-2 ${
               activeTab === 'workorders'
                 ? 'bg-purple-950/80 text-purple-300 border border-purple-500/40 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
@@ -243,7 +248,7 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveTab('moderation')}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-all flex items-center gap-2 ${
               activeTab === 'moderation'
                 ? 'bg-purple-950/80 text-purple-300 border border-purple-500/40 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
@@ -255,7 +260,7 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveTab('ai_insights')}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-all flex items-center gap-2 ${
               activeTab === 'ai_insights'
                 ? 'bg-purple-950/80 text-purple-300 border border-purple-500/40 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
@@ -267,7 +272,7 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveTab('users')}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-all flex items-center gap-2 ${
               activeTab === 'users'
                 ? 'bg-purple-950/80 text-purple-300 border border-purple-500/40 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'

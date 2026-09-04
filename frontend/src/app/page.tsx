@@ -19,6 +19,8 @@ import {
   Flame,
   Loader2
 } from 'lucide-react';
+import { CampusRadarLoader } from '@/components/ui/CustomLoader';
+import { EmptyStateIllustration } from '@/components/ui/EmptyStateIllustration';
 
 export default function HomePage() {
   const router = useRouter();
@@ -112,10 +114,11 @@ export default function HomePage() {
   if (isLoadingAuth || !currentUser) {
     return (
       <div className="min-h-screen bg-[#060813] flex items-center justify-center text-purple-400">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin" />
-          <p className="text-xs text-slate-400">Authenticating campus session...</p>
-        </div>
+        <CampusRadarLoader
+          size="lg"
+          message="Authenticating campus session..."
+          subMessage="Connecting to CET infrastructure network"
+        />
       </div>
     );
   }
@@ -202,11 +205,11 @@ export default function HomePage() {
         </div>
 
         {/* View Tabs */}
-        <div className="flex items-center justify-between gap-4 mb-4 border-b border-indigo-950/60 pb-3">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-4 mb-4 border-b border-indigo-950/60 pb-3 overflow-x-auto scrollbar-none touch-scroll">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setTabView('all')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                 tabView === 'all'
                   ? 'bg-purple-950/80 text-purple-300 border border-purple-500/40 shadow-[0_0_15px_-3px_rgba(168,85,247,0.3)]'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
@@ -218,7 +221,7 @@ export default function HomePage() {
 
             <button
               onClick={() => setTabView('my_reported')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                 tabView === 'my_reported'
                   ? 'bg-purple-950/80 text-purple-300 border border-purple-500/40 shadow-[0_0_15px_-3px_rgba(168,85,247,0.3)]'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
@@ -230,7 +233,7 @@ export default function HomePage() {
 
             <button
               onClick={() => setTabView('my_affected')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                 tabView === 'my_affected'
                   ? 'bg-purple-950/80 text-purple-300 border border-purple-500/40 shadow-[0_0_15px_-3px_rgba(168,85,247,0.3)]'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
@@ -247,37 +250,37 @@ export default function HomePage() {
 
         {/* Problem Tiles Grid */}
         {filteredIssues.length === 0 ? (
-          <div className="py-20 text-center rounded-3xl glass-panel p-8">
-            <Layers className="w-12 h-12 mx-auto mb-3 text-purple-400/60" />
-            <h3 className="text-base font-bold text-slate-200">
-              {issues.length === 0 ? 'No Campus Issues Logged Yet' : 'No issues found matching your filters'}
-            </h3>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-              {issues.length === 0
-                ? 'All campus systems and infrastructure are operating normally. Spotted a problem? Report it below.'
-                : 'Try adjusting your search criteria or report a new problem if you noticed an unlisted issue.'}
-            </p>
-            <div className="mt-5 flex items-center justify-center gap-3">
-              {issues.length === 0 ? (
-                <button
-                  onClick={() => setIsReportModalOpen(true)}
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.35)] transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Report First Issue
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    setFilters({ search: '', status: 'ALL', departmentId: 'ALL', categoryId: 'ALL', sortBy: 'most_affected' });
-                    setTabView('all');
-                  }}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-purple-300 bg-purple-950/50 hover:bg-purple-900/60 border border-purple-800/40"
-                >
-                  Clear All Filters
-                </button>
-              )}
-            </div>
+          <div className="rounded-3xl glass-panel p-6 sm:p-10 border border-indigo-500/20">
+            <EmptyStateIllustration
+              type={issues.length === 0 ? 'issues' : 'search'}
+              title={issues.length === 0 ? 'No Campus Issues Logged Yet' : 'No issues found matching your filters'}
+              description={
+                issues.length === 0
+                  ? 'All campus systems and infrastructure are operating normally. Spotted a problem? Report it below.'
+                  : 'Try adjusting your search criteria or report a new problem if you noticed an unlisted issue.'
+              }
+              action={
+                issues.length === 0 ? (
+                  <button
+                    onClick={() => setIsReportModalOpen(true)}
+                    className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.35)] transition-all flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Report First Issue
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setFilters({ search: '', status: 'ALL', departmentId: 'ALL', categoryId: 'ALL', sortBy: 'most_affected' });
+                      setTabView('all');
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-purple-300 bg-purple-950/50 hover:bg-purple-900/60 border border-purple-800/40"
+                  >
+                    Clear All Filters
+                  </button>
+                )
+              }
+            />
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

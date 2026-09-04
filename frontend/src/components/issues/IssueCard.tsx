@@ -71,11 +71,11 @@ export const IssueCard: React.FC<IssueCardProps> = ({ issue }) => {
 
       <div>
         {/* Header: Category, Status & Priority */}
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-300/90 bg-purple-950/40 px-2.5 py-1 rounded-lg border border-purple-800/30">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-300/90 bg-purple-950/40 px-2.5 py-1 rounded-lg border border-purple-800/30 max-w-[60%]">
             <span className="truncate">{cat?.name || 'General Campus'}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             <PriorityBadge priority={issue.priority} />
             <StatusBadge status={issue.status} />
           </div>
@@ -83,25 +83,25 @@ export const IssueCard: React.FC<IssueCardProps> = ({ issue }) => {
 
         {/* Title */}
         <Link href={`/issues/${issue.id}`} className="block group-hover:text-purple-300 transition-colors">
-          <h3 className="text-base font-bold text-white leading-snug line-clamp-2 mb-2 group-hover:translate-x-0.5 transition-transform">
+          <h3 className="text-base font-bold text-white leading-snug line-clamp-2 mb-2 group-hover:translate-x-0.5 transition-transform break-words">
             {issue.title}
           </h3>
         </Link>
 
         {/* Description snippet */}
-        <p className="text-xs text-slate-300 line-clamp-2 mb-4 leading-relaxed">
+        <p className="text-xs text-slate-300 line-clamp-2 mb-4 leading-relaxed break-words">
           {issue.description}
         </p>
 
         {/* Location & Dept Badges */}
         <div className="space-y-1.5 mb-4 text-xs text-slate-400 bg-[#070a1a]/60 p-2.5 rounded-xl border border-indigo-950/60">
-          <div className="flex items-center gap-2 text-slate-300">
+          <div className="flex items-center gap-2 text-slate-300 min-w-0">
             <MapPin className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
             <span className="truncate font-medium">
               {loc ? `${loc.building} • ${loc.room}` : (issue.locationDetails || issue.locationId || 'Main Campus')}
             </span>
           </div>
-          <div className="flex items-center gap-2 text-[11px] text-slate-400">
+          <div className="flex items-center gap-2 text-[11px] text-slate-400 min-w-0">
             <Building2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
             <span className="truncate">
               {dept ? (dept.code && dept.code !== dept.name ? `${dept.name} (${dept.code})` : dept.name) : (issue.departmentId || 'Campus Facilities')}
@@ -112,11 +112,11 @@ export const IssueCard: React.FC<IssueCardProps> = ({ issue }) => {
         {/* Quick Highlights: Asset tag or Resolution proof marker */}
         {(issue.status === 'VERIFIED' || issue.status === 'RESOLUTION_SUBMITTED') && issue.resolutionProof && (
           <div className="mb-4 px-3 py-2 rounded-xl bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-between text-xs text-emerald-300">
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span className="font-medium">{issue.status === 'VERIFIED' ? 'Verified Fix' : 'Proof Submitted'}</span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="font-medium truncate">{issue.status === 'VERIFIED' ? 'Verified Fix' : 'Proof Submitted'}</span>
             </div>
-            <span className="text-[10px] text-emerald-400/80">by {(issue.resolutionProof.resolvedByName || 'Staff').split(' ')[0]}</span>
+            <span className="text-[10px] text-emerald-400/80 shrink-0 ml-2">by {(issue.resolutionProof.resolvedByName || 'Staff').split(' ')[0]}</span>
           </div>
         )}
 
@@ -134,9 +134,9 @@ export const IssueCard: React.FC<IssueCardProps> = ({ issue }) => {
         {/* Upvote / I'm Affected Button */}
         <button
           onClick={handleUpvote}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-medium transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 min-h-[38px] rounded-xl font-medium transition-all cursor-pointer ${
             isAffected
-              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)] scale-[1.03]'
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)] scale-[1.02]'
               : 'bg-slate-900/80 text-slate-300 hover:text-purple-300 hover:bg-purple-950/40 border border-slate-800 hover:border-purple-500/30'
           }`}
           title={isAffected ? "You've marked that you're also affected" : "Click if you are also facing this problem"}

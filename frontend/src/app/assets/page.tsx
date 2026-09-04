@@ -24,6 +24,7 @@ import {
   Loader2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { CampusRadarLoader } from '@/components/ui/CustomLoader';
 
 export default function AssetsPage() {
   const router = useRouter();
@@ -48,7 +49,11 @@ export default function AssetsPage() {
   if (isLoadingAuth || !currentUser) {
     return (
       <div className="min-h-screen bg-[#060813] flex items-center justify-center text-purple-400">
-        <Loader2 className="w-8 h-8 animate-spin" />
+        <CampusRadarLoader
+          size="lg"
+          message="Loading campus asset registry..."
+          subMessage="Fetching hardware tags & maintenance logs"
+        />
       </div>
     );
   }
@@ -327,9 +332,9 @@ export default function AssetsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleAddAsset} className="space-y-3.5 text-xs">
+            <form onSubmit={handleAddAsset} className="space-y-4">
               <div>
-                <label className="block font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Equipment / Asset Name <span className="text-purple-400">*</span>
                 </label>
                 <input
@@ -338,12 +343,12 @@ export default function AssetsPage() {
                   placeholder="e.g. Epson EB-2250U Projector"
                   value={newAssetName}
                   onChange={(e) => setNewAssetName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#070a1a] border border-indigo-950 text-white placeholder-slate-500 focus:border-purple-500 outline-none"
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-[#070a1a] border border-indigo-950 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Asset Tag / Serial ID <span className="text-purple-400">*</span>
                 </label>
                 <input
@@ -352,19 +357,19 @@ export default function AssetsPage() {
                   placeholder="e.g. PRJ-CS-201"
                   value={newAssetTag}
                   onChange={(e) => setNewAssetTag(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#070a1a] border border-indigo-950 text-white placeholder-slate-500 focus:border-purple-500 outline-none uppercase font-mono"
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-[#070a1a] border border-indigo-950 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none uppercase font-mono"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                     Department <span className="text-purple-400">*</span>
                   </label>
                   <select
                     value={newAssetDept}
                     onChange={(e) => setNewAssetDept(e.target.value)}
-                    className="w-full px-2.5 py-2 rounded-xl bg-[#070a1a] border border-indigo-950 text-slate-300 focus:border-purple-500 outline-none"
+                    className="w-full px-3 py-2.5 min-h-[44px] rounded-xl bg-[#070a1a] border border-indigo-950 text-sm text-slate-300 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none cursor-pointer"
                   >
                     {departments.map((d) => (
                       <option key={d.id} value={d.id}>
@@ -375,7 +380,7 @@ export default function AssetsPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                     Room / Lab
                   </label>
                   <input
@@ -383,13 +388,13 @@ export default function AssetsPage() {
                     placeholder="e.g. CS 201"
                     value={newAssetLocation}
                     onChange={(e) => setNewAssetLocation(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-[#070a1a] border border-indigo-950 text-white placeholder-slate-500 focus:border-purple-500 outline-none"
+                    className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-[#070a1a] border border-indigo-950 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Model Number (Optional)
                 </label>
                 <input
@@ -397,21 +402,21 @@ export default function AssetsPage() {
                   placeholder="e.g. EB-2250U"
                   value={newAssetModel}
                   onChange={(e) => setNewAssetModel(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#070a1a] border border-indigo-950 text-white placeholder-slate-500 focus:border-purple-500 outline-none"
+                  className="w-full px-3.5 py-2.5 min-h-[44px] rounded-xl bg-[#070a1a] border border-indigo-950 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
                 />
               </div>
 
-              <div className="pt-3 border-t border-indigo-950 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-indigo-950 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setIsAddAssetOpen(false)}
-                  className="px-3.5 py-2 rounded-xl text-slate-400 hover:text-white cursor-pointer"
+                  className="px-4 py-2.5 min-h-[40px] rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold cursor-pointer"
+                  className="px-5 py-2.5 min-h-[40px] rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white shadow-md transition-all cursor-pointer"
                 >
                   Save Asset
                 </button>

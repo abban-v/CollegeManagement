@@ -165,14 +165,14 @@ export const ResolutionProofModal: React.FC<ResolutionProofModalProps> = ({
             </label>
             <textarea
               required
-              rows={3}
+              rows={4}
               placeholder="Detail the root cause found, parts replaced, calibration steps, or technician sign-off notes..."
               value={notes}
               onChange={(e) => {
                 setNotes(e.target.value);
                 setError('');
               }}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#060a17] border border-slate-800 text-xs text-white placeholder-slate-500 focus:border-emerald-500 outline-none resize-none leading-relaxed"
+              className="w-full px-3.5 py-2.5 min-h-[100px] rounded-xl bg-[#060a17] border border-slate-800 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none resize-none leading-relaxed"
             />
           </div>
 
@@ -184,17 +184,17 @@ export const ResolutionProofModal: React.FC<ResolutionProofModalProps> = ({
           )}
 
           {/* Actions */}
-          <div className="pt-3 border-t border-slate-800/80 flex items-center justify-end gap-2.5">
+          <div className="pt-3 border-t border-slate-800/80 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-300 transition-colors"
+              className="px-4 py-2.5 min-h-[40px] rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-[0_0_18px_rgba(16,185,129,0.35)] transition-all"
+              className="px-5 py-2.5 min-h-[40px] rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-[0_0_18px_rgba(16,185,129,0.35)] transition-all cursor-pointer"
             >
               Submit Proof & Resolve Issue
             </button>
