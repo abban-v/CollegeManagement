@@ -51,9 +51,20 @@ export interface Issue {
   reporterRole?: string;
   affectedUserCount?: number;
   affectedUserIds?: string[];
+  affectedUsers?: Array<{
+    id: string;
+    name: string;
+    role?: string;
+    email?: string;
+    isReporter?: boolean;
+  }>;
   followerUserIds?: string[];
   followers?: Array<{ userId: string; issueId: string }>;
-  participants?: Array<{ userId: string; issueId: string }>;
+  participants?: Array<{
+    userId: string;
+    issueId: string;
+    user?: { id: string; name?: string | null; role?: string; email?: string };
+  }>;
   comments?: Array<{
     id: string;
     authorId: string;

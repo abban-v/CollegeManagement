@@ -30,6 +30,14 @@ export interface User {
   avatarUrl?: string;
 }
 
+export interface AffectedUser {
+  id: string;
+  name: string;
+  role?: UserRole;
+  email?: string;
+  isReporter?: boolean;
+}
+
 export interface Department {
   id: string;
   name: string;
@@ -138,6 +146,7 @@ export interface Issue {
   
   attachments: string[]; // URLs/base64
   affectedUserIds: string[]; // upvoted / marked "I'm affected"
+  affectedUsers?: AffectedUser[]; // detailed info for affected members
   followerUserIds: string[];
   
   assigneeId?: string;

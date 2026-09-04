@@ -16,6 +16,7 @@ import {
   Building2,
   Calendar,
   User,
+  Users,
   ThumbsUp,
   MessageSquare,
   CheckCircle2,
@@ -33,6 +34,7 @@ import {
   Bot,
   Flag
 } from 'lucide-react';
+import { AffectedUser } from '@/lib/types';
 import Link from 'next/link';
 import { CampusRadarLoader } from '@/components/ui/CustomLoader';
 import { AmbientBackground } from '@/components/layout/AmbientBackground';
@@ -125,8 +127,31 @@ export default function IssueDetailPage() {
   const cat = getCategoryById(issue.categoryId);
   const asset = getAssetById(issue.assetId);
 
-  const isAffected = issue.affectedUserIds.includes(currentUser.id);
-  const isOfficialOrAdmin = currentUser.role === 'ADMIN' || currentUser.role === 'OFFICIAL';
+  const isAffected = currentUser ? issue.affectedUserIds.includes(currentUser.id) : false;
+  const isOfficialOrAdmin = currentUser ? (currentUser.role === 'ADMIN' || currentUser.role === 'OFFICIAL') : false;
+
+  const getInitials = (name: string) => {
+    if (!name || name.trim() === '') return '?';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  const affectedList: AffectedUser[] = (() => {
+    if (issue.affectedUsers && issue.affectedUsers.length > 0) {
+      return issue.affectedUsers;
+    }
+    return issue.affectedUserIds.map((userId) => {
+      const isMe = currentUser && currentUser.id === userId;
+      const isRep = userId === issue.reporterId;
+      return {
+        id: userId,
+        name: isMe ? (currentUser.name || 'You') : isRep ? issue.reporterName : 'Campus Member',
+        role: isMe ? currentUser.role : isRep ? issue.reporterRole : 'STUDENT',
+        isReporter: isRep,
+      };
+    });
+  })();
 
   const handleUpvote = (e?: React.MouseEvent) => {
     if (!isAffected) {
@@ -626,23 +651,101 @@ export default function IssueDetailPage() {
 
             {/* Affected Campus Members List */}
             <div className="rounded-2xl glass-panel p-6 border border-zinc-800">
-              <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                <ThumbsUp className="w-4 h-4 text-blue-400" />
-                Affected Students & Staff ({issue.affectedUserIds.length})
-              </h3>
-              <p className="text-xs text-slate-400 mb-3 leading-relaxed">
-                When multiple students mark themselves affected, this ticket receives higher urgency in the facilities queue.
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Users className="w-4 h-4 text-blue-400" />
+                  <span>Affected Students & Staff</span>
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-950/70 border border-blue-800/50 text-blue-300">
+                  {affectedList.length}
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+                When campus members mark themselves affected, this ticket receives higher urgency and priority in the facilities maintenance queue.
               </p>
-              <div className="flex items-center -space-x-2 overflow-hidden py-1">
-                {issue.affectedUserIds.map((userId, index) => (
-                  <div
-                    key={userId}
-                    className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-600 border-2 border-[#121217] flex items-center justify-center text-xs font-bold text-white shadow-sm"
-                    title={`User ID: ${userId}`}
-                  >
-                    {index === 0 ? 'A' : index === 1 ? 'P' : 'U'}
-                  </div>
-                ))}
+
+              {affectedList.length === 0 ? (
+                <div className="py-6 px-4 rounded-xl bg-zinc-900/40 border border-dashed border-zinc-800 text-center">
+                  <Users className="w-7 h-7 text-zinc-600 mx-auto mb-2" />
+                  <p className="text-xs font-medium text-zinc-400">No one has marked themselves affected yet</p>
+                  <p className="text-[11px] text-zinc-500 mt-1">Impacted by this problem? Mark yourself affected to escalate it.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {affectedList.map((person) => {
+                    const isMe = currentUser?.id === person.id;
+                    const initials = getInitials(person.name);
+                    const isStaff = person.role === 'ADMIN' || person.role === 'OFFICIAL';
+                    const avatarBg = isStaff
+                      ? 'from-purple-600 to-indigo-600 border-purple-400/40 text-purple-100'
+                      : 'from-blue-600 to-cyan-600 border-blue-400/40 text-blue-100';
+
+                    const roleBadgeStyle = person.role === 'ADMIN'
+                      ? 'bg-purple-950/70 text-purple-300 border-purple-800/40'
+                      : person.role === 'OFFICIAL'
+                      ? 'bg-emerald-950/70 text-emerald-300 border-emerald-800/40'
+                      : 'bg-zinc-800/90 text-slate-300 border-zinc-700/50';
+
+                    return (
+                      <div
+                        key={person.id}
+                        className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-[#121217] border border-zinc-800/90 hover:border-zinc-700/80 hover:bg-zinc-800/30 transition-all group"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {/* Real Initials Avatar */}
+                          <div className={`w-9 h-9 rounded-full bg-gradient-to-tr ${avatarBg} border flex items-center justify-center text-xs font-black shrink-0 shadow-sm`}>
+                            {initials}
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-semibold text-zinc-100 truncate group-hover:text-white transition-colors">
+                                {person.name}
+                              </span>
+                              {isMe && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                  You
+                                </span>
+                              )}
+                              {person.isReporter && (
+                                <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/25">
+                                  Reporter
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-zinc-400 truncate mt-0.5">
+                              {person.email || (isStaff ? 'Campus Staff / Admin' : 'College Student')}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Campus Role Badge */}
+                        <span className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded border shrink-0 ${roleBadgeStyle}`}>
+                          {person.role || 'STUDENT'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Action Bar inside the card */}
+              <div className="mt-4 pt-4 border-t border-zinc-800/80 flex items-center justify-between gap-3">
+                <span className="text-xs text-zinc-400">
+                  {isAffected ? "You're marked as affected" : "Impacted by this problem?"}
+                </span>
+                <button
+                  onClick={handleUpvote}
+                  className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 min-h-[36px] ${
+                    isAffected
+                      ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30 hover:bg-blue-600/30'
+                      : 'bg-blue-600 text-white hover:bg-blue-500 shadow-md shadow-blue-600/20'
+                  }`}
+                >
+                  <ThumbsUp className={`w-3.5 h-3.5 ${isAffected ? 'fill-current' : ''}`} />
+                  <span>{isAffected ? 'Remove Myself' : 'Mark as Affected'}</span>
+                </button>
               </div>
             </div>
 

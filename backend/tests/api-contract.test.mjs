@@ -47,3 +47,11 @@ test("issue API exposes the current core routes", () => {
   assert.match(routes, /PATCH \/notifications/);
   assert.match(routes, /POST \/notifications\/:id\/read/);
 });
+
+test("issue service includes participant user details for affected member listings", () => {
+  const serviceCode = read("src/modules/issues/service.ts");
+  assert.match(
+    serviceCode,
+    /participants:\s*\{\s*include:\s*\{\s*user:\s*\{\s*select:\s*\{\s*id:\s*true,\s*name:\s*true,\s*role:\s*true/
+  );
+});

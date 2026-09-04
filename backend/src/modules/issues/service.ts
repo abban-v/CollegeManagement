@@ -248,7 +248,17 @@ export class IssueService {
         analysis: true,
         asset: true,
         followers: true,
-        participants: true,
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                role: true,
+              },
+            },
+          },
+        },
         resolutions: {
           include: {
             resolvedBy: { select: { id: true, name: true } },
@@ -302,7 +312,17 @@ export class IssueService {
           },
         },
         followers: true,
-        participants: true,
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                role: true,
+              },
+            },
+          },
+        },
         reports: true,
         disputes: {
           orderBy: { createdAt: "desc" },
@@ -488,7 +508,17 @@ export class IssueService {
           analysis: true,
           asset: true,
           followers: true,
-          participants: true,
+          participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                role: true,
+              },
+            },
+          },
+        },
           resolutions: {
             orderBy: { createdAt: "desc" },
             include: {
@@ -824,6 +854,19 @@ export class IssueService {
       const updated = await tx.issue.update({
         where: { id: issueId },
         data: { affectedUserCount },
+        include: {
+          participants: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  role: true,
+                },
+              },
+            },
+          },
+        },
       });
 
       if (issue.reporterId !== userId) {
@@ -850,6 +893,19 @@ export class IssueService {
       return tx.issue.update({
         where: { id: issueId },
         data: { affectedUserCount },
+        include: {
+          participants: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  role: true,
+                },
+              },
+            },
+          },
+        },
       });
     });
   }
@@ -1101,7 +1157,17 @@ export class IssueService {
           analysis: true,
           asset: true,
           followers: true,
-          participants: true,
+          participants: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  role: true,
+                },
+              },
+            },
+          },
           resolutions: {
             orderBy: { createdAt: "desc" },
             include: {

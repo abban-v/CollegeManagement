@@ -19,6 +19,7 @@ import {
   AIAnalysis,
   IssueReport,
   ReopenDetails,
+  AffectedUser,
 } from './types';
 import {
   MOCK_USERS,
@@ -189,15 +190,77 @@ export function mapBackendIssueToFrontend(item: ApiIssue | Record<string, unknow
 
   const reporterObj = item.reporter as { id?: string; name?: string; email?: string; role?: string } | undefined;
   const reporterRole = ((reporterObj?.role as string) || (item.reporterRole as string) || 'STUDENT').toUpperCase() as UserRole;
+  const reporterId = (item.reporterId as string) || (reporterObj?.id) || 'unknown';
+  const reporterName = reporterObj?.name || (item.reporterName as string) || 'Campus Member';
+  const reporterEmail = reporterObj?.email || (item.reporterEmail as string) || '';
 
-  const participants = (item.participants as Array<{ userId: string }>) || [];
+  type RawParticipant = {
+    id?: string;
+    userId?: string;
+    user?: {
+      id?: string;
+      name?: string;
+      role?: string;
+      email?: string;
+    };
+  };
+
+  const rawParticipants = (item.participants as RawParticipant[]) || [];
+  const rawAffectedUsers = (item.affectedUsers as AffectedUser[]) || [];
+
+  let affectedUsers: AffectedUser[] = [];
+  if (rawAffectedUsers.length > 0) {
+    affectedUsers = rawAffectedUsers.map((u) => ({
+      ...u,
+      isReporter: u.id === reporterId || Boolean(u.isReporter),
+    }));
+  } else if (rawParticipants.length > 0) {
+    affectedUsers = rawParticipants.map((p) => {
+      const u = p.user;
+      const uId = u?.id || p.userId || 'unknown';
+      const isReporter = uId === reporterId;
+      const uName = u?.name || (isReporter ? reporterName : undefined) || 'Campus Member';
+      const uRole = ((u?.role || (isReporter ? reporterRole : 'STUDENT')) as string).toUpperCase() as UserRole;
+      const uEmail = u?.email || (isReporter ? reporterEmail : undefined);
+      return {
+        id: uId,
+        name: uName,
+        role: uRole,
+        email: uEmail,
+        isReporter,
+      };
+    });
+  } else if (Array.isArray(item.affectedUserIds) && item.affectedUserIds.length > 0) {
+    affectedUsers = (item.affectedUserIds as string[]).map((uid) => {
+      const isReporter = uid === reporterId;
+      return {
+        id: uid,
+        name: isReporter ? reporterName : 'Campus Member',
+        role: isReporter ? reporterRole : ('STUDENT' as UserRole),
+        email: isReporter ? reporterEmail : undefined,
+        isReporter,
+      };
+    });
+  } else if (reporterId && reporterId !== 'unknown') {
+    affectedUsers = [
+      {
+        id: reporterId,
+        name: reporterName,
+        role: reporterRole,
+        email: reporterEmail,
+        isReporter: true,
+      },
+    ];
+  }
+
+  const affectedUserIds = affectedUsers.length > 0
+    ? affectedUsers.map((u) => u.id)
+    : (item.affectedUserIds as string[]) || [];
+
   const followers = (item.followers as Array<{ userId: string }>) || [];
-  const affectedUserIds = participants.length > 0
-    ? participants.map((p) => p.userId)
-    : (item.affectedUserIds as string[]) || ((item.reporterId as string) ? [item.reporterId as string] : []);
   const followerUserIds = followers.length > 0
     ? followers.map((f) => f.userId)
-    : (item.followerUserIds as string[]) || ((item.reporterId as string) ? [item.reporterId as string] : []);
+    : (item.followerUserIds as string[]) || (reporterId !== 'unknown' ? [reporterId] : []);
 
   let aiAnalysis: AIAnalysis | undefined = undefined;
   if (item.analysis) {
@@ -225,9 +288,9 @@ export function mapBackendIssueToFrontend(item: ApiIssue | Record<string, unknow
     locationId: (item.location as string) || (item.locationId as string) || 'loc-main',
     locationDetails: (item.location as string) || (item.locationDetails as string) || '',
     assetId: (item.assetId as string) || undefined,
-    reporterId: (item.reporterId as string) || (reporterObj?.id) || 'unknown',
-    reporterName: reporterObj?.name || (item.reporterName as string) || 'Campus Member',
-    reporterEmail: reporterObj?.email || (item.reporterEmail as string) || '',
+    reporterId,
+    reporterName,
+    reporterEmail,
     reporterRole,
     status: (item.status as IssueStatus) || 'REPORTED',
     moderationStatus: (item.moderationStatus as ModerationStatus) || 'NORMAL',
@@ -237,6 +300,7 @@ export function mapBackendIssueToFrontend(item: ApiIssue | Record<string, unknow
     occurredAt: (item.occurredAt as string) || new Date((item.createdAt as string) || Date.now()).toLocaleString(),
     attachments: Array.isArray(item.attachments) ? item.attachments.map((a: string) => formatImageUrl(a)) : [],
     affectedUserIds,
+    affectedUsers,
     followerUserIds,
     aiAnalysis,
     resolutionProof,
@@ -604,9 +668,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ? iss.affectedUserIds.filter((id) => id !== currentUser.id)
           : [...iss.affectedUserIds, currentUser.id];
 
+        const existingUsers = iss.affectedUsers || [];
+        const updatedAffectedUsers: AffectedUser[] = isAffected
+          ? existingUsers.filter((u) => u.id !== currentUser.id)
+          : [
+              ...existingUsers.filter((u) => u.id !== currentUser.id),
+              {
+                id: currentUser.id,
+                name: currentUser.name || 'Campus Member',
+                role: currentUser.role || 'STUDENT',
+                email: currentUser.email,
+                isReporter: currentUser.id === iss.reporterId,
+              },
+            ];
+
         return {
           ...iss,
           affectedUserIds: updatedAffected,
+          affectedUsers: updatedAffectedUsers,
         };
       })
     );
@@ -624,11 +703,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIssues((prev) =>
         prev.map((iss) => {
           if (iss.id !== issueId) return iss;
+          const revertedAffected = wasAffected
+            ? [...iss.affectedUserIds, currentUser.id]
+            : iss.affectedUserIds.filter((id) => id !== currentUser.id);
+
+          const existingUsers = iss.affectedUsers || [];
+          const revertedAffectedUsers: AffectedUser[] = wasAffected
+            ? [
+                ...existingUsers.filter((u) => u.id !== currentUser.id),
+                {
+                  id: currentUser.id,
+                  name: currentUser.name || 'Campus Member',
+                  role: currentUser.role || 'STUDENT',
+                  email: currentUser.email,
+                  isReporter: currentUser.id === iss.reporterId,
+                },
+              ]
+            : existingUsers.filter((u) => u.id !== currentUser.id);
+
           return {
             ...iss,
-            affectedUserIds: wasAffected
-              ? [...iss.affectedUserIds, currentUser.id]
-              : iss.affectedUserIds.filter((id) => id !== currentUser.id),
+            affectedUserIds: revertedAffected,
+            affectedUsers: revertedAffectedUsers,
           };
         })
       );
