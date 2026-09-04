@@ -1,5 +1,5 @@
 import prisma from "@/lib/db";
-import { IssueStatus, IssuePriority, ModerationStatus, Prisma } from "@prisma/client";
+import { IssueStatus, IssuePriority, ModerationStatus, Prisma, UserRole } from "@prisma/client";
 import { CreateIssueInput, UpdateIssueInput } from "@/lib/validation/issue";
 import type { CreateCommentInput } from "@/lib/validation/comment";
 import type {
@@ -245,7 +245,7 @@ export class IssueService {
    * Email addresses are excluded from public-facing fields.
    */
   async getIssueById(id: string) {
-    return await prisma.issue.findUnique({
+    const issue = await prisma.issue.findUnique({
       where: { id },
       include: {
         reporter: {
@@ -260,7 +260,11 @@ export class IssueService {
         embedding: true,
         statusHistory: {
           orderBy: { createdAt: "desc" },
-          take: 10,
+          take: 20,
+        },
+        auditLogs: {
+          orderBy: { createdAt: "desc" },
+          take: 50,
         },
         comments: {
           orderBy: { createdAt: "desc" },
@@ -296,12 +300,120 @@ export class IssueService {
               select: {
                 id: true,
                 name: true,
+                role: true,
               },
             },
           },
         },
       },
     });
+
+    if (!issue) return null;
+
+    // Collect all actors from auditLogs, reporter, and resolutions to resolve user names & roles
+    const actorIds = new Set<string>();
+    if (issue.reporterId) actorIds.add(issue.reporterId);
+    for (const log of issue.auditLogs || []) {
+      if (log.actor && log.actor !== "SYSTEM") {
+        actorIds.add(log.actor);
+      }
+    }
+    for (const res of issue.resolutions || []) {
+      if (res.resolvedById) actorIds.add(res.resolvedById);
+    }
+
+    const actors = actorIds.size > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: Array.from(actorIds) } },
+          select: { id: true, name: true, role: true },
+        })
+      : [];
+    const actorMap = new Map<string, { id: string; name: string | null; role: UserRole }>();
+    actors.forEach((u) => actorMap.set(u.id, u));
+
+    // Enrich statusHistory entries with the user who triggered that specific status change
+    const enrichedHistory = (issue.statusHistory || []).map((h) => {
+      // 1. Initial creation
+      if (h.toStatus === IssueStatus.REPORTED && h.fromStatus === IssueStatus.REPORTED) {
+        const rep = actorMap.get(issue.reporterId) || issue.reporter;
+        return {
+          ...h,
+          changedById: rep?.id || issue.reporterId,
+          changedByName: rep?.name || "Campus Member",
+          changedByRole: rep?.role || "STUDENT",
+        };
+      }
+
+      // 2. Resolution submission
+      if (h.toStatus === IssueStatus.RESOLUTION_SUBMITTED && issue.resolutions?.length > 0) {
+        const latestRes = issue.resolutions[0];
+        const resUser = actorMap.get(latestRes.resolvedById) || latestRes.resolvedBy;
+        if (resUser) {
+          return {
+            ...h,
+            changedById: resUser.id,
+            changedByName: resUser.name || "Campus Official",
+            changedByRole: (resUser as any).role || "OFFICIAL",
+          };
+        }
+      }
+
+      // 3. Match from auditLogs
+      const matchingLog = (issue.auditLogs || []).find((log) => {
+        if (
+          log.action === "STATUS_CHANGE" ||
+          log.action === "CREATE" ||
+          log.action === "RESOLUTION_ADDED" ||
+          log.action === "RESOLUTION_DISPUTED"
+        ) {
+          // Check if details references toStatus
+          if (log.details && log.details.includes(h.toStatus)) {
+            return true;
+          }
+          // Or timestamp proximity (within 10 seconds)
+          const timeDiff = Math.abs(new Date(log.createdAt).getTime() - new Date(h.createdAt).getTime());
+          if (timeDiff <= 10000) {
+            return true;
+          }
+        }
+        return false;
+      });
+
+      if (matchingLog && matchingLog.actor) {
+        const actorUser = actorMap.get(matchingLog.actor);
+        if (actorUser) {
+          return {
+            ...h,
+            changedById: actorUser.id,
+            changedByName: actorUser.name || "Campus Staff",
+            changedByRole: actorUser.role || "OFFICIAL",
+          };
+        }
+      }
+
+      // Fallback: If reporter reported, use reporter
+      if (h.toStatus === IssueStatus.REPORTED) {
+        const rep = actorMap.get(issue.reporterId) || issue.reporter;
+        return {
+          ...h,
+          changedById: rep?.id || issue.reporterId,
+          changedByName: rep?.name || "Campus Member",
+          changedByRole: rep?.role || "STUDENT",
+        };
+      }
+
+      return {
+        ...h,
+        changedById: "system",
+        changedByName: "Campus Official",
+        changedByRole: "OFFICIAL",
+      };
+    });
+
+    return {
+      ...issue,
+      statusHistory: enrichedHistory,
+    };
   }
 
   /**
