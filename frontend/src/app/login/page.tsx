@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useApp } from '@/lib/store';
 import { apiClient } from '@/lib/api';
 import {
@@ -141,11 +142,18 @@ export default function LoginPage() {
         
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3.5 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-600 text-white shadow-[0_0_35px_rgba(37,99,235,0.4)] mb-3 border border-blue-400/40 animate-float-slow">
-            <ShieldAlert className="w-7 h-7" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#0e1017] shadow-[0_0_35px_rgba(37,99,235,0.4)] mb-3 border border-blue-400/40 animate-float-slow p-2 overflow-hidden">
+            <Image
+              src="/logo.png"
+              alt="CET | CampusFix Logo"
+              width={64}
+              height={64}
+              className="w-full h-full object-contain"
+              priority
+            />
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            SLASH<span className="text-blue-400">FORGE</span>
+            CET <span className="text-blue-400 font-light mx-0.5">|</span> <span className="text-blue-400">CampusFix</span>
           </h1>
           <p className="text-xs text-slate-400 font-medium mt-1">
             College of Engineering Trivandrum

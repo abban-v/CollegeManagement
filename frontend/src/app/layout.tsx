@@ -3,8 +3,15 @@ import './globals.css';
 import { AppProvider } from '@/lib/store';
 
 export const metadata: Metadata = {
-  title: 'Slashforge | Campus Asset & Issue Intelligence',
-  description: 'AI-assisted campus asset maintenance and issue reporting platform',
+  title: 'CET | CampusFix',
+  description: 'College of Engineering Trivandrum - Campus Asset & Issue Management Portal',
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/logo.png', type: 'image/png' },
+    ],
+    apple: [{ url: '/logo.png' }],
+  },
 };
 
 export default function RootLayout({

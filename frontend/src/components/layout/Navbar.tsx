@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useApp } from '@/lib/store';
 import { NotificationDrawer } from './NotificationDrawer';
@@ -55,18 +56,24 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenReportModal }) => {
             
             {/* Logo */}
             <div className="flex items-center gap-6">
-              <Link href="/" className="flex items-center gap-2.5 group">
-                <div className="p-2 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)] group-hover:scale-105 transition-transform">
-                  <ShieldAlert className="w-5 h-5" />
+              <Link href="/" className="flex items-center gap-3 group">
+                <div className="relative w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-blue-500/30 bg-[#0e1017] shadow-[0_0_15px_rgba(37,99,235,0.3)] group-hover:scale-105 transition-transform flex items-center justify-center">
+                  <Image
+                    src="/logo.png"
+                    alt="CET | CampusFix Logo"
+                    width={40}
+                    height={40}
+                    className="w-full h-full object-contain p-0.5"
+                    priority
+                  />
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="font-extrabold text-lg tracking-tight text-white">SLASH<span className="text-blue-400">FORGE</span></span>
-                    <span className="text-[10px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded bg-blue-950/80 text-blue-300 border border-blue-800/60">
-                      CET
+                    <span className="font-extrabold text-lg tracking-tight text-white">
+                      CET <span className="text-blue-400 font-light mx-0.5">|</span> <span className="text-blue-400">CampusFix</span>
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400 hidden sm:block">Campus Infrastructure & Resolution Portal</p>
+                  <p className="text-[10px] text-slate-400 hidden sm:block uppercase tracking-wider font-semibold">Report • Track • Resolve</p>
                 </div>
               </Link>
 
