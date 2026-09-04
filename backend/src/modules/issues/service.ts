@@ -22,6 +22,17 @@ export class FabricatedSpamError extends Error {
   }
 }
 
+export class InappropriateContentError extends Error {
+  public status: number;
+  constructor(
+    message: string = "The uploaded image contains inappropriate or prohibited content. Please remove or replace the image."
+  ) {
+    super(message);
+    this.name = "InappropriateContentError";
+    this.status = 422;
+  }
+}
+
 export class DuplicateIssueError extends Error {
   public status: number;
   public duplicateIssueId?: string | null;
@@ -90,6 +101,18 @@ export class IssueService {
         "Issue already exists, instead of creating new one, upvote the previous issue",
         matchId,
         matchTitle
+      );
+    }
+
+    // Inappropriate Image Content Check
+    if (
+      analysis.moderationFlags.includes("INAPPROPRIATE_IMAGE") ||
+      analysis.moderationFlags.includes("NSFW") ||
+      analysis.moderationFlags.includes("VIOLENCE") ||
+      analysis.moderationFlags.includes("HARASSMENT")
+    ) {
+      throw new InappropriateContentError(
+        "The uploaded image contains inappropriate or prohibited content. Please remove or replace the image before submitting."
       );
     }
 

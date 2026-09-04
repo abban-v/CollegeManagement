@@ -24,6 +24,7 @@ export type IssueAnalysisInput = {
   location?: string;
   suspectedCause?: string;
   proposedSolution?: string;
+  attachments?: string[];
 };
 
 export type IssueAnalysisResult = {
@@ -499,6 +500,135 @@ Return ONLY a valid JSON object matching this exact format with NO surrounding m
   return fallback;
 }
 
+export type ImageInspectionResult = {
+  isAppropriate: boolean;
+  isRelevant: boolean;
+  safetyFlag: string | null;
+  relevanceFlag: string | null;
+  confidence: number;
+  description: string;
+  reasoning: string;
+  modelUsed: string;
+};
+
+export async function inspectIssueImage(
+  input: IssueAnalysisInput,
+  imageUrl: string
+): Promise<ImageInspectionResult | null> {
+  if (!imageUrl || typeof imageUrl !== "string" || !imageUrl.trim()) {
+    return null;
+  }
+
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey || apiKey === "your_openrouter_api_key_here") {
+    return null;
+  }
+
+  // Vision-capable models on OpenRouter (free tier)
+  const visionModels = [
+    process.env.OPENROUTER_VISION_MODEL || "dots-studio/dots-3-note-preview:free",
+    "google/gemma-4-31b-it:free",
+    "openrouter/free",
+  ].filter((v, i, a) => a.indexOf(v) === i);
+
+  const prompt = `You are an AI Safety & Visual Relevance Sentinel for a college campus infrastructure reporting platform.
+A campus member has submitted a problem ticket with the following details:
+- Issue Title: "${input.title}"
+- Problem Description: "${input.description}"
+- Reported Location: "${input.location || "Campus Facilities"}"
+- Category: "${input.category || "General Infrastructure"}"
+
+You are provided with an image uploaded as evidence for this problem ticket.
+Your task is to thoroughly analyze the image and verify two critical criteria:
+
+1. APPROPRIATENESS & CONTENT SAFETY:
+Ensure the image DOES NOT contain:
+- Inappropriate, NSFW, sexually suggestive, or adult content
+- Graphic violence, gore, weapons, or physical harm
+- Hate symbols, profanity, harassment, or offensive signs
+- Personally identifiable confidential information
+
+2. RELEVANCE TO THE REPORTED PROBLEM:
+Validate whether the image is actually relevant to the reported campus problem:
+- Does the image show the described equipment, classroom, lab, campus facility, electrical/plumbing defect, physical damage, or infrastructure?
+- Is it completely irrelevant spam (e.g., memes, celebrity photos, random video game screenshots, anime/cartoons, personal selfies, random internet downloads, or blank images)?
+
+Output strict JSON with this exact schema:
+{
+  "isAppropriate": boolean,
+  "isRelevant": boolean,
+  "safetyFlag": null | "INAPPROPRIATE_CONTENT" | "NSFW" | "VIOLENCE" | "HARASSMENT",
+  "relevanceFlag": null | "IRRELEVANT_IMAGE" | "MEME_OR_SPAM",
+  "confidence": number,
+  "description": string,
+  "reasoning": string
+}`;
+
+  for (const model of visionModels) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 18000);
+
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://slashforge.campus.local",
+          "X-Title": "Slashforge Campus Management",
+        },
+        body: JSON.stringify({
+          model,
+          reasoning: { max_tokens: 0 },
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                { type: "image_url", image_url: { url: imageUrl } },
+              ],
+            },
+          ],
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        console.warn(`[OpenRouter Vision Sentinel] Model ${model} returned HTTP ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) continue;
+
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        console.log(`[OpenRouter Vision Sentinel] Inspection via ${model} -> Appropriate: ${parsed.isAppropriate}, Relevant: ${parsed.isRelevant}`);
+        return {
+          isAppropriate: typeof parsed.isAppropriate === "boolean" ? parsed.isAppropriate : true,
+          isRelevant: typeof parsed.isRelevant === "boolean" ? parsed.isRelevant : true,
+          safetyFlag: typeof parsed.safetyFlag === "string" ? parsed.safetyFlag : null,
+          relevanceFlag: typeof parsed.relevanceFlag === "string" ? parsed.relevanceFlag : null,
+          confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.8,
+          description: typeof parsed.description === "string" ? parsed.description : "",
+          reasoning: typeof parsed.reasoning === "string" ? parsed.reasoning : "",
+          modelUsed: `openrouter/${model}`,
+        };
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[OpenRouter Vision Sentinel] Model ${model} attempt failed: ${msg}`);
+      continue;
+    }
+  }
+
+  return null;
+}
+
 export async function analyzeIssue(
   input: IssueAnalysisInput,
   existingIssues: ExistingIssueContext[] = [],
@@ -506,10 +636,55 @@ export async function analyzeIssue(
 ): Promise<IssueAnalysisResult> {
   const fallback = analyzeIssueLocally(input, duplicateCandidates);
 
+  // 1. If an image attachment is provided, inspect it with OpenRouter vision models
+  let imageInspection: ImageInspectionResult | null = null;
+  const imageAttachment = input.attachments?.find(
+    (att): att is string =>
+      typeof att === "string" &&
+      att.trim().length > 0 &&
+      (att.startsWith("data:image/") || att.startsWith("http://") || att.startsWith("https://"))
+  );
+  if (imageAttachment) {
+    try {
+      imageInspection = await inspectIssueImage(input, imageAttachment);
+    } catch (err) {
+      console.warn("[OpenRouter Vision Sentinel] Image inspection threw an error:", err);
+    }
+  }
+
+  // 2. Perform text triage analysis
+  let analysis: IssueAnalysisResult;
   try {
-    return await analyzeIssueWithGemini(input, existingIssues, duplicateCandidates, fallback);
+    analysis = await analyzeIssueWithGemini(input, existingIssues, duplicateCandidates, fallback);
   } catch (error) {
     console.warn("Gemini analysis unavailable, falling back to local analyzer", error);
-    return fallback;
+    analysis = fallback;
   }
+
+  // 3. Integrate image safety and relevance signals into analysis
+  if (imageInspection) {
+    if (!imageInspection.isAppropriate) {
+      analysis.moderationFlags.push("INAPPROPRIATE_IMAGE");
+      if (imageInspection.safetyFlag) {
+        analysis.moderationFlags.push(imageInspection.safetyFlag);
+      }
+      analysis.spamScore = Math.max(analysis.spamScore, 0.95);
+      analysis.confidence = Math.min(analysis.confidence, 0.1);
+      analysis.reasoning = `[Image Safety Alert] Inappropriate/unsafe image detected: ${imageInspection.reasoning}. ${analysis.reasoning}`;
+    } else if (!imageInspection.isRelevant) {
+      analysis.moderationFlags.push("IRRELEVANT_IMAGE");
+      if (imageInspection.relevanceFlag) {
+        analysis.moderationFlags.push(imageInspection.relevanceFlag);
+      }
+      analysis.spamScore = Math.min(1.0, analysis.spamScore + 0.35);
+      analysis.confidence = Math.max(0.1, analysis.confidence - 0.25);
+      analysis.reasoning = `[Image Relevance Note] Uploaded image not relevant to problem: ${imageInspection.reasoning}. ${analysis.reasoning}`;
+    } else {
+      analysis.confidence = Math.min(1.0, analysis.confidence + 0.15);
+      analysis.spamScore = Math.max(0.0, analysis.spamScore - 0.1);
+      analysis.reasoning = `[Image Evidence Verified] ${imageInspection.description}. ${analysis.reasoning}`;
+    }
+  }
+
+  return analysis;
 }

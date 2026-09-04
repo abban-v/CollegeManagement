@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { CreateIssueSchema, IssuePriorityEnum, IssueStatusEnum } from "@/lib/validation/issue";
-import { issueService, FabricatedSpamError, DuplicateIssueError } from "@/modules/issues/service";
+import { issueService, FabricatedSpamError, DuplicateIssueError, InappropriateContentError } from "@/modules/issues/service";
 import { getErrorMessage, successResponse, errorResponse, sendJSON, formatZodError } from "@/lib/api";
 import { withAuth } from "@/lib/auth";
 
@@ -83,6 +83,11 @@ export const POST = withAuth(async (request: NextRequest, _context, session) => 
     // Check if it's a DuplicateIssueError
     if (error instanceof DuplicateIssueError) {
       return sendJSON(errorResponse(error.message, 409));
+    }
+
+    // Check if it's an InappropriateContentError (inappropriate image)
+    if (error instanceof InappropriateContentError) {
+      return sendJSON(errorResponse(error.message, 422));
     }
 
     // Check if it's a FabricatedSpamError (Spam rating > 80% and confidence < 30%)
