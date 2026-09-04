@@ -283,7 +283,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const res = await apiClient.listIssues({ take: 100 });
       if (res.data?.issues) {
         const mapped = res.data.issues.map(mapBackendIssueToFrontend);
-        setIssues(mapped);
+        setIssues((prev) => {
+          if (
+            prev.length === mapped.length &&
+            prev.every(
+              (p, i) =>
+                p.id === mapped[i]?.id &&
+                p.status === mapped[i]?.status &&
+                p.moderationStatus === mapped[i]?.moderationStatus &&
+                p.affectedUserIds.length === mapped[i]?.affectedUserIds.length &&
+                p.updatedAt === mapped[i]?.updatedAt
+            )
+          ) {
+            return prev;
+          }
+          return mapped;
+        });
       }
     } catch (e) {
       console.warn('Could not fetch issues from backend:', e);
@@ -440,10 +455,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isInitialized || !currentUser) return;
     const interval = setInterval(() => {
+      // Pause polling when browser tab is inactive/hidden to conserve battery and eliminate idle CPU cycles
+      if (typeof document !== 'undefined' && document.hidden) return;
+
       refreshIssues();
       apiClient.getNotifications().then((notifRes) => {
         if (notifRes.data?.notifications && Array.isArray(notifRes.data.notifications)) {
-          setNotifications(notifRes.data.notifications.map((n: Record<string, unknown>) => ({
+          const fresh = notifRes.data.notifications.map((n: Record<string, unknown>) => ({
             id: n.id as string,
             userId: (n.userId as string) || '',
             title: (n.title as string) || 'Notification',
@@ -452,7 +470,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             read: Boolean(n.read || n.readAt),
             issueId: (n.issueId as string) || undefined,
             createdAt: (n.createdAt as string) || new Date().toISOString(),
-          })));
+          }));
+
+          setNotifications((prev) => {
+            if (
+              prev.length === fresh.length &&
+              prev.every((item, i) => item.id === fresh[i]?.id && item.read === fresh[i]?.read)
+            ) {
+              return prev; // No change: preserve state reference, avoid re-render
+            }
+            return fresh;
+          });
         }
       }).catch(() => {});
     }, 10000);
