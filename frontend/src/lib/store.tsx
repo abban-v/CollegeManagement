@@ -284,20 +284,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (res.data?.issues) {
         const mapped = res.data.issues.map(mapBackendIssueToFrontend);
         setIssues((prev) => {
+          const mappedIds = new Set(mapped.map((m) => m.id));
+          // Preserve any issues in prev that are not in the public list
+          // (e.g. UNDER_REVIEW or REMOVED issues loaded specifically or flagged items)
+          const preserved = prev.filter(
+            (p) =>
+              !mappedIds.has(p.id) &&
+              (p.moderationStatus === 'UNDER_REVIEW' ||
+                p.moderationStatus === 'REMOVED' ||
+                p.moderationStatus === 'FLAGGED')
+          );
+          const merged = [...mapped, ...preserved];
+
           if (
-            prev.length === mapped.length &&
+            prev.length === merged.length &&
             prev.every(
               (p, i) =>
-                p.id === mapped[i]?.id &&
-                p.status === mapped[i]?.status &&
-                p.moderationStatus === mapped[i]?.moderationStatus &&
-                p.affectedUserIds.length === mapped[i]?.affectedUserIds.length &&
-                p.updatedAt === mapped[i]?.updatedAt
+                p.id === merged[i]?.id &&
+                p.status === merged[i]?.status &&
+                p.moderationStatus === merged[i]?.moderationStatus &&
+                p.affectedUserIds.length === merged[i]?.affectedUserIds.length &&
+                p.updatedAt === merged[i]?.updatedAt
             )
           ) {
             return prev;
           }
-          return mapped;
+          return merged;
         });
       }
     } catch (e) {

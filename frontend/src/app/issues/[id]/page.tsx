@@ -67,7 +67,7 @@ export default function IssueDetailPage() {
   const [isFlagModalOpen, setIsFlagModalOpen] = useState(false);
   const [flagReason, setFlagReason] = useState<FlagReason>('spam');
   const [flagDetails, setFlagDetails] = useState('');
-
+  const [isFetchingDetail, setIsFetchingDetail] = useState(true);
 
   React.useEffect(() => {
     if (!isLoadingAuth && !currentUser) {
@@ -77,11 +77,18 @@ export default function IssueDetailPage() {
 
   React.useEffect(() => {
     if (issueId) {
-      fetchIssueDetail(issueId);
+      setIsFetchingDetail(true);
+      fetchIssueDetail(issueId).finally(() => {
+        setIsFetchingDetail(false);
+      });
     }
   }, [issueId, fetchIssueDetail]);
 
-  if (isLoadingAuth || !currentUser) {
+  const issue = issues.find((i) => i.id === issueId);
+  const issueComments = comments[issueId] || [];
+  const historyList = statusHistory[issueId] || [];
+
+  if (isLoadingAuth || !currentUser || (isFetchingDetail && !issue)) {
     return (
       <div className="min-h-screen bg-[#060813] flex items-center justify-center text-purple-400">
         <CampusRadarLoader
@@ -92,10 +99,6 @@ export default function IssueDetailPage() {
       </div>
     );
   }
-
-  const issue = issues.find((i) => i.id === issueId);
-  const issueComments = comments[issueId] || [];
-  const historyList = statusHistory[issueId] || [];
 
   if (!issue) {
     return (
