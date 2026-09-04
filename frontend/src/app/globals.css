@@ -138,6 +138,49 @@
   animation: float-pulse-slow 14s ease-in-out infinite;
 }
 
+/* Subtle Organic Blob Drifting for Hero Gradient Cards */
+@keyframes hero-blob-drift-1 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.85;
+  }
+  33% {
+    transform: translate3d(-15px, 12px, 0) scale(1.04);
+    opacity: 1;
+  }
+  66% {
+    transform: translate3d(10px, -10px, 0) scale(0.97);
+    opacity: 0.78;
+  }
+}
+
+@keyframes hero-blob-drift-2 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.75;
+  }
+  33% {
+    transform: translate3d(14px, -14px, 0) scale(0.96);
+    opacity: 0.95;
+  }
+  66% {
+    transform: translate3d(-10px, 10px, 0) scale(1.03);
+    opacity: 0.70;
+  }
+}
+
+.animate-blob-drift-1 {
+  will-change: transform, opacity;
+  transform: translate3d(0, 0, 0);
+  animation: hero-blob-drift-1 18s ease-in-out infinite;
+}
+
+.animate-blob-drift-2 {
+  will-change: transform, opacity;
+  transform: translate3d(0, 0, 0);
+  animation: hero-blob-drift-2 22s ease-in-out infinite;
+}
+
 .animate-float-reverse.animate-pulse-glow {
   will-change: transform, opacity;
   transform: translate3d(0, 0, 0);
@@ -268,7 +311,9 @@
   .animate-pulse-glow,
   .animate-card-shimmer,
   .animate-dust,
-  .animate-ambient-drift {
+  .animate-ambient-drift,
+  .animate-blob-drift-1,
+  .animate-blob-drift-2 {
     animation: none !important;
     transform: none !important;
   }

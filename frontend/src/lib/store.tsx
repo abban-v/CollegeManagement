@@ -49,6 +49,7 @@ interface AppContextType {
   users: User[];
   isLoadingAuth: boolean;
   isLoadingIssues: boolean;
+  isLoadingAssets: boolean;
   login: (email: string, password?: string) => Promise<User>;
   setUserFromAuthResponse: (userData: { id: string; email: string; name: string | null; role: string }) => User;
   logout: () => Promise<void>;
@@ -339,6 +340,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [statusHistory, setStatusHistory] = useState<Record<string, IssueStatusHistory[]>>({});
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [isLoadingAssets, setIsLoadingAssets] = useState<boolean>(true);
   const [reports, setReports] = useState<IssueReport[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const pendingStatusTransitions = useRef<Set<string>>(new Set());
@@ -410,6 +412,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (e) {
       console.warn('Could not fetch assets from backend:', e);
+    } finally {
+      setIsLoadingAssets(false);
     }
   }, []);
 
@@ -528,6 +532,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setIsInitialized(true);
         setIsLoadingAuth(false);
         setIsLoadingIssues(false);
+        setIsLoadingAssets(false);
       }
     }
 
@@ -1253,6 +1258,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         users: MOCK_USERS,
         isLoadingAuth,
         isLoadingIssues,
+        isLoadingAssets,
         login,
         setUserFromAuthResponse,
         logout,

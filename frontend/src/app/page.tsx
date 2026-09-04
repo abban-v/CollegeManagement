@@ -137,8 +137,8 @@ export default function HomePage() {
         
         {/* Hero & Live Stats Banner */}
         <div className="relative rounded-3xl p-6 sm:p-8 mb-8 overflow-hidden border border-zinc-800 bg-gradient-to-br from-[#121217]/95 via-[#0e1017]/95 to-[#161824]/95 shadow-[0_15px_50px_-10px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
-          <div className="absolute -top-24 -right-24 w-80 h-80 bg-blue-600/15 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
-          <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-amber-600/12 rounded-full blur-3xl pointer-events-none animate-float-slow" />
+          <div className="absolute -top-24 -right-24 w-80 h-80 bg-blue-600/15 rounded-full blur-3xl pointer-events-none animate-blob-drift-1" />
+          <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-amber-600/12 rounded-full blur-3xl pointer-events-none animate-blob-drift-2" />
 
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>

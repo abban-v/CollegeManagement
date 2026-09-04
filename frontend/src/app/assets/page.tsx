@@ -29,7 +29,7 @@ import { AmbientBackground } from '@/components/layout/AmbientBackground';
 
 export default function AssetsPage() {
   const router = useRouter();
-  const { assets, departments, getDepartmentById, currentUser, isLoadingAuth, addAsset, deleteAsset } = useApp();
+  const { assets, departments, getDepartmentById, currentUser, isLoadingAuth, isLoadingAssets, addAsset, deleteAsset } = useApp();
   const [search, setSearch] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
@@ -160,7 +160,9 @@ export default function AssetsPage() {
               <Box className="w-3.5 h-3.5 text-emerald-400" />
               <span>CET Campus Equipment Registry</span>
               <span className="w-1 h-1 rounded-full bg-emerald-400/60" />
-              <span className="text-emerald-200 font-mono">{assets.length} Total Assets</span>
+              <span className="text-emerald-200 font-mono">
+                {isLoadingAssets ? 'Syncing...' : `${assets.length} Total Assets`}
+              </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
               Campus Assets & Equipment
@@ -210,8 +212,37 @@ export default function AssetsPage() {
           </select>
         </div>
 
-        {/* Empty State */}
-        {filteredAssets.length === 0 && (
+        {/* Loading State */}
+        {isLoadingAssets ? (
+          <div className="rounded-3xl bg-[#111827]/80 backdrop-blur-md p-8 sm:p-14 border border-slate-800 flex flex-col items-center justify-center min-h-[380px] text-center shadow-xl">
+            <CampusRadarLoader
+              size="lg"
+              message="Loading campus asset registry..."
+              subMessage="Fetching hardware tags & maintenance logs from CET database"
+            />
+            {/* 3-card skeleton outline preview underneath matching emerald asset cards */}
+            <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-5 mt-10 opacity-35 pointer-events-none">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="rounded-2xl bg-[#0e1726]/60 border border-slate-800 p-5 space-y-3.5 animate-pulse">
+                  <div className="flex justify-between items-center">
+                    <div className="h-5 w-20 bg-emerald-950/60 border border-emerald-800/40 rounded-lg" />
+                    <div className="h-5 w-24 bg-slate-800 rounded-full" />
+                  </div>
+                  <div className="h-5 w-4/5 bg-slate-700/60 rounded-md" />
+                  <div className="h-3 w-1/3 bg-slate-800 rounded-md" />
+                  <div className="p-3 rounded-xl bg-[#0B0F17]/80 border border-slate-800/60 space-y-2">
+                    <div className="h-3.5 w-3/4 bg-slate-800/80 rounded" />
+                    <div className="h-3.5 w-1/2 bg-slate-800/80 rounded" />
+                  </div>
+                  <div className="pt-2 flex justify-between items-center border-t border-slate-800/60">
+                    <div className="h-3 w-24 bg-slate-800/60 rounded" />
+                    <div className="h-4 w-16 bg-slate-800/60 rounded-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : filteredAssets.length === 0 ? (
           <div className="rounded-3xl bg-[#111827]/80 p-12 text-center border border-slate-800 max-w-lg mx-auto my-12 shadow-xl">
             <div className="w-14 h-14 rounded-2xl bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 flex items-center justify-center mx-auto mb-4">
               <Box className="w-7 h-7" />
@@ -229,7 +260,7 @@ export default function AssetsPage() {
               </button>
             )}
           </div>
-        )}
+        ) : null}
 
         {/* Assets Cards Grid */}
         {filteredAssets.length > 0 && (
