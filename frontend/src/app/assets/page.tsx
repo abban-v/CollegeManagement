@@ -154,11 +154,13 @@ export default function AssetsPage() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 text-xs font-semibold mb-2">
-              <Box className="w-3.5 h-3.5" />
-              CET Campus Equipment Registry
+              <Box className="w-3.5 h-3.5 text-emerald-400" />
+              <span>CET Campus Equipment Registry</span>
+              <span className="w-1 h-1 rounded-full bg-emerald-400/60" />
+              <span className="text-emerald-200 font-mono">{assets.length} Total Assets</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
               Campus Assets & Equipment
@@ -168,21 +170,17 @@ export default function AssetsPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            {isOfficialOrAdmin && (
+          {isOfficialOrAdmin && (
+            <div className="flex items-center">
               <button
                 onClick={() => setIsAddAssetOpen(true)}
-                className="px-4 py-2.5 min-h-[44px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white shadow-lg shadow-emerald-600/30 flex items-center gap-2 transition-all cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-4 h-4 stroke-[2.5]" />
                 Register Asset
               </button>
-            )}
-            <div className="p-3 rounded-2xl bg-[#111827]/80 border border-slate-800 text-center">
-              <span className="text-[11px] text-slate-400">Total Assets</span>
-              <p className="text-xl font-extrabold text-white">{assets.length}</p>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Search & Filter Bar */}
