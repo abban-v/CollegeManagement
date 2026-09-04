@@ -409,25 +409,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           });
         }
 
-        // Fire all initial requests concurrently in parallel
+        // Fire all initial public requests concurrently in parallel
         const [sessionRes] = await Promise.allSettled([
           apiClient.getSession(),
           refreshIssues(),
           refreshAssets(),
-          apiClient.getNotifications().then((notifRes) => {
-            if (notifRes.data?.notifications && Array.isArray(notifRes.data.notifications)) {
-              setNotifications(notifRes.data.notifications.map((n: Record<string, unknown>) => ({
-                id: n.id as string,
-                userId: (n.userId as string) || '',
-                title: (n.title as string) || 'Notification',
-                body: (n.body as string) || (n.message as string) || '',
-                type: (n.type as AppNotification['type']) || 'STATUS_CHANGED',
-                read: Boolean(n.read || n.readAt),
-                issueId: (n.issueId as string) || undefined,
-                createdAt: (n.createdAt as string) || new Date().toISOString(),
-              })));
-            }
-          }).catch(() => {}),
         ]);
 
         if (sessionRes.status === 'fulfilled' && sessionRes.value.data?.user) {
@@ -444,6 +430,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           try {
             localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(userObj));
           } catch {}
+
+          // Fetch notifications only for authenticated users
+          apiClient.getNotifications().then((notifRes) => {
+            if (notifRes.data?.notifications && Array.isArray(notifRes.data.notifications)) {
+              setNotifications(notifRes.data.notifications.map((n: Record<string, unknown>) => ({
+                id: n.id as string,
+                userId: (n.userId as string) || '',
+                title: (n.title as string) || 'Notification',
+                body: (n.body as string) || (n.message as string) || '',
+                type: (n.type as AppNotification['type']) || 'STATUS_CHANGED',
+                read: Boolean(n.read || n.readAt),
+                issueId: (n.issueId as string) || undefined,
+                createdAt: (n.createdAt as string) || new Date().toISOString(),
+              })));
+            }
+          }).catch(() => {});
         } else if (sessionRes.status === 'fulfilled' && sessionRes.value.status === 401) {
           // Explicitly expired or revoked session
           setCurrentUser(null);
