@@ -14,9 +14,7 @@ import {
   Bell,
   ChevronDown,
   LogOut,
-  Plus,
-  Menu,
-  X
+  Plus
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -29,7 +27,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenReportModal }) => {
   const { currentUser, logout, notifications } = useApp();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -150,56 +147,63 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenReportModal }) => {
                   </button>
 
                   {isProfileMenuOpen && (
-                    <div 
-                      className="absolute right-0 mt-2 w-56 rounded-xl bg-[#121217] border border-zinc-800 shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
-                      onMouseLeave={() => setIsProfileMenuOpen(false)}
-                    >
-                      <div className="px-3 py-2 border-b border-zinc-800 mb-1.5">
-                        <p className="text-xs font-semibold text-white truncate">{currentUser.name}</p>
-                        <p className="text-[11px] text-slate-400 truncate">{currentUser.email}</p>
-                      </div>
+                    <>
+                      {/* Backdrop overlay to dismiss profile menu when clicking/tapping outside */}
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setIsProfileMenuOpen(false)}
+                      />
+                      <div 
+                        className="absolute right-0 mt-2 w-56 rounded-xl bg-[#121217] border border-zinc-800 shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                        onMouseLeave={() => setIsProfileMenuOpen(false)}
+                      >
+                        <div className="px-3 py-2 border-b border-zinc-800 mb-1.5">
+                          <p className="text-xs font-semibold text-white truncate">{currentUser.name}</p>
+                          <p className="text-[11px] text-slate-400 truncate">{currentUser.email}</p>
+                        </div>
 
-                      <div className="space-y-1">
-                        <Link
-                          href="/"
-                          onClick={() => setIsProfileMenuOpen(false)}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-300 hover:bg-zinc-800/60 transition-colors"
-                        >
-                          <Layers className="w-4 h-4 text-blue-400" />
-                          <span>Campus Issues</span>
-                        </Link>
-
-                        <Link
-                          href="/assets"
-                          onClick={() => setIsProfileMenuOpen(false)}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-300 hover:bg-zinc-800/60 transition-colors"
-                        >
-                          <Box className="w-4 h-4 text-emerald-400" />
-                          <span>Asset Registry</span>
-                        </Link>
-
-                        {(currentUser.role === 'ADMIN' || currentUser.role === 'OFFICIAL' || currentUser.role === 'MODERATOR') && (
+                        <div className="space-y-1">
                           <Link
-                            href="/admin"
+                            href="/"
                             onClick={() => setIsProfileMenuOpen(false)}
                             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-300 hover:bg-zinc-800/60 transition-colors"
                           >
-                            <BarChart3 className="w-4 h-4 text-amber-400" />
-                            <span>{currentUser.role === 'ADMIN' ? 'Admin Dashboard' : 'Staff & Moderation'}</span>
+                            <Layers className="w-4 h-4 text-blue-400" />
+                            <span>Campus Issues</span>
                           </Link>
-                        )}
-                      </div>
 
-                      <div className="border-t border-zinc-800 mt-2 pt-2">
-                        <button
-                          onClick={handleLogout}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-rose-300 hover:bg-rose-950/40 hover:text-rose-200 transition-colors cursor-pointer"
-                        >
-                          <LogOut className="w-3.5 h-3.5" />
-                          <span>Sign Out</span>
-                        </button>
+                          <Link
+                            href="/assets"
+                            onClick={() => setIsProfileMenuOpen(false)}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-300 hover:bg-zinc-800/60 transition-colors"
+                          >
+                            <Box className="w-4 h-4 text-emerald-400" />
+                            <span>Asset Registry</span>
+                          </Link>
+
+                          {(currentUser.role === 'ADMIN' || currentUser.role === 'OFFICIAL' || currentUser.role === 'MODERATOR') && (
+                            <Link
+                              href="/admin"
+                              onClick={() => setIsProfileMenuOpen(false)}
+                              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-300 hover:bg-zinc-800/60 transition-colors"
+                            >
+                              <BarChart3 className="w-4 h-4 text-amber-400" />
+                              <span>{currentUser.role === 'ADMIN' ? 'Admin Dashboard' : 'Staff & Moderation'}</span>
+                            </Link>
+                          )}
+                        </div>
+
+                        <div className="border-t border-zinc-800 mt-2 pt-2">
+                          <button
+                            onClick={handleLogout}
+                            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-rose-300 hover:bg-rose-950/40 hover:text-rose-200 transition-colors cursor-pointer"
+                          >
+                            <LogOut className="w-3.5 h-3.5" />
+                            <span>Sign Out</span>
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    </>
                   )}
                 </div>
               ) : (
@@ -222,60 +226,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenReportModal }) => {
                 </button>
               )}
 
-              {/* Mobile Hamburger Menu Toggle */}
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="md:hidden p-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800 text-slate-300 hover:text-white hover:border-zinc-700 transition-all"
-                aria-label="Toggle navigation menu"
-              >
-                {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-              </button>
-
             </div>
 
           </div>
         </div>
-
-        {/* Mobile Navigation Drawer */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden border-t border-zinc-800 bg-[#09090b]/95 backdrop-blur-2xl px-4 py-3 space-y-2 animate-in fade-in slide-in-from-top-2 duration-150 shadow-2xl">
-            <nav className="space-y-1">
-              {navLinks.map((link) => {
-                const Icon = link.icon;
-                const isActive = pathname === link.href;
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                      isActive
-                        ? 'bg-zinc-800 text-white border border-zinc-700'
-                        : 'text-slate-300 hover:text-white hover:bg-zinc-800/60'
-                    }`}
-                  >
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-blue-400' : 'text-slate-400'}`} />
-                    {link.label}
-                  </Link>
-                );
-              })}
-            </nav>
-            {onOpenReportModal && (
-              <div className="pt-2 border-t border-zinc-800">
-                <button
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    onOpenReportModal();
-                  }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 shadow-md active:scale-98"
-                >
-                  <Plus className="w-4 h-4 stroke-[2.5]" />
-                  Report Issue
-                </button>
-              </div>
-            )}
-          </div>
-        )}
       </header>
 
       <NotificationDrawer isOpen={isNotifOpen} onClose={() => setIsNotifOpen(false)} />
