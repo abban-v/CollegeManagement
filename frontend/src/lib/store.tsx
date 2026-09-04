@@ -277,7 +277,7 @@ export function mapBackendIssueToFrontend(item: ApiIssue | Record<string, unknow
       moderationFlags: Array.isArray(analysisObj.moderationFlags) ? (analysisObj.moderationFlags as string[]) : [],
       duplicateCandidates: Array.isArray(analysisObj.duplicateCandidates) ? (analysisObj.duplicateCandidates as string[]) : [],
       reasoning: (analysisObj.reasoning as string) || 'Automated AI analysis complete.',
-      modelUsed: (analysisObj.modelUsed as string) || 'Gemini 2.5 Flash',
+      modelUsed: (analysisObj.modelUsed as string) || 'openrouter/nvidia/nemotron-3.5-lightning:free',
     };
   }
 

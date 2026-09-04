@@ -8,6 +8,7 @@ import { UserRole, Issue } from '@/lib/types';
 import { Navbar } from '@/components/layout/Navbar';
 import { StatusBadge, PriorityBadge, ModerationBadge } from '@/components/ui/Badge';
 import { ResolutionProofModal } from '@/components/issues/ResolutionProofModal';
+import { AiDiagnosticsHub } from '@/components/admin/AiDiagnosticsHub';
 import {
   BarChart3,
   AlertTriangle,
@@ -47,6 +48,7 @@ export default function AdminDashboardPage() {
   const {
     issues,
     departments,
+    categories,
     moderateIssue,
     deleteIssuePermanent,
     refreshIssues,
@@ -579,37 +581,11 @@ export default function AdminDashboardPage() {
 
         {/* TAB 3: AI INTELLIGENCE */}
         {activeTab === 'ai_insights' && (
-          <div className="rounded-2xl bg-[#141417] p-6 border border-zinc-800 shadow-md space-y-6">
-            <div>
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Bot className="w-5 h-5 text-zinc-300" />
-                Gemini 2.5 Flash Model Gateway & SLA Intelligence
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Multi-tier AI pipeline: Flash-Lite for fast classification & spam checks; Gemini 2.5 Flash for priority estimation and duplicate reranking.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 rounded-xl bg-zinc-900/70 border border-zinc-800">
-                <span className="text-xs font-semibold text-zinc-400">Model Tier Active</span>
-                <p className="text-lg font-bold text-white mt-1">Gemini 2.5 Flash</p>
-                <p className="text-[11px] text-slate-400 mt-1">Primary reasoning & priority engine</p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-zinc-900/70 border border-zinc-800">
-                <span className="text-xs font-semibold text-zinc-400">Average Confidence Score</span>
-                <p className="text-lg font-bold text-emerald-400 mt-1">94.2%</p>
-                <p className="text-[11px] text-slate-400 mt-1">Based on category & symptom clarity</p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-zinc-900/70 border border-zinc-800">
-                <span className="text-xs font-semibold text-zinc-400">Spam Filter Precision</span>
-                <p className="text-lg font-bold text-zinc-200 mt-1">99.1%</p>
-                <p className="text-[11px] text-slate-400 mt-1">Zero legitimate reports blocked</p>
-              </div>
-            </div>
-          </div>
+          <AiDiagnosticsHub
+            issues={issues}
+            departments={departments}
+            categories={categories}
+          />
         )}
 
         {/* TAB 4: USER & ROLE MANAGEMENT */}
