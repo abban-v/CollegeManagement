@@ -106,10 +106,10 @@ let activeCanvas: HTMLCanvasElement | null = null;
 let activeCtx: CanvasRenderingContext2D | null = null;
 let animationId: number | null = null;
 
-let streaks: LaserStreak[] = [];
-let embers: StarlightEmber[] = [];
-let rings: ShockwaveRing[] = [];
-let flashes: FlashGlow[] = [];
+const streaks: LaserStreak[] = [];
+const embers: StarlightEmber[] = [];
+const rings: ShockwaveRing[] = [];
+const flashes: FlashGlow[] = [];
 
 function ensureCanvas(variant: BurstVariant): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } | null {
   if (typeof window === 'undefined') return null;

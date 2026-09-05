@@ -7,7 +7,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useApp } from '@/lib/store';
 import { NotificationDrawer } from './NotificationDrawer';
 import {
-  ShieldAlert,
   Layers,
   Box,
   BarChart3,

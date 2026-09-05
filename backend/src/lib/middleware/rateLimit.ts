@@ -35,6 +35,28 @@ export const ratelimit = redis
 
 // In-memory fallback
 const inMemoryStore = new Map<string, { count: number; resetTime: number }>();
+const MAX_IN_MEMORY_ENTRIES = 1000;
+
+function pruneExpiredInMemoryEntries(now: number): void {
+  if (inMemoryStore.size < MAX_IN_MEMORY_ENTRIES) return;
+
+  for (const [key, record] of inMemoryStore.entries()) {
+    if (now > record.resetTime) {
+      inMemoryStore.delete(key);
+    }
+  }
+
+  // If still above threshold after deleting expired entries, evict oldest entries
+  if (inMemoryStore.size > MAX_IN_MEMORY_ENTRIES * 2) {
+    const toDeleteCount = inMemoryStore.size - MAX_IN_MEMORY_ENTRIES;
+    let deleted = 0;
+    for (const key of inMemoryStore.keys()) {
+      inMemoryStore.delete(key);
+      deleted++;
+      if (deleted >= toDeleteCount) break;
+    }
+  }
+}
 
 /**
  * Parse a duration string like "10 s" or "1 m" into milliseconds.
@@ -78,6 +100,7 @@ export async function checkRateLimit(
 
   // In-memory fallback
   const now = Date.now();
+  pruneExpiredInMemoryEntries(now);
   const windowMs = parseWindow(window);
   const record = inMemoryStore.get(identifier);
 

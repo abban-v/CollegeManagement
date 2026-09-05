@@ -20,8 +20,7 @@ import {
   Tv,
   AirVent,
   Zap,
-  Trash2,
-  Loader2
+  Trash2
 } from 'lucide-react';
 import { triggerQuantumBurst } from '@/lib/quantumBurst';
 import { CampusRadarLoader } from '@/components/ui/CustomLoader';
@@ -327,7 +326,7 @@ export default function AssetsPage() {
 
                   {/* Footer */}
                   <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-                    <span>Installed: {asset.installedAt || 'N/A'}</span>
+                    <span>Installed: {asset.installedAt ? asset.installedAt.split('T')[0] : 'N/A'}</span>
                     <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
                       asset.reportedIssuesCount > 0
                         ? 'bg-amber-950/60 text-amber-300 border border-amber-500/30'

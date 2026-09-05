@@ -396,7 +396,7 @@ export class IssueService {
             ...h,
             changedById: resUser.id,
             changedByName: resUser.name || "Campus Official",
-            changedByRole: (resUser as any).role || "OFFICIAL",
+            changedByRole: resUser.role || "OFFICIAL",
           };
         }
       }

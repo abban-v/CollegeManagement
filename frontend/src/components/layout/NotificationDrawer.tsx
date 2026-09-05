@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useApp } from '@/lib/store';
-import { X, Bell, Check, CheckCheck, AlertCircle, RefreshCw, MessageSquare, ArrowUpRight } from 'lucide-react';
+import { X, Bell, Check, CheckCheck, AlertCircle, RefreshCw, MessageSquare, ArrowUpRight, CheckCircle2, ShieldAlert, ThumbsUp } from 'lucide-react';
 import Link from 'next/link';
 
 interface NotificationDrawerProps {
@@ -23,10 +23,16 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({ isOpen, 
         return <AlertCircle className="w-4 h-4 text-cyan-400" />;
       case 'STATUS_CHANGED':
         return <RefreshCw className="w-4 h-4 text-blue-400" />;
+      case 'RESOLUTION_SUBMITTED':
+        return <CheckCircle2 className="w-4 h-4 text-emerald-400" />;
       case 'REOPENED':
         return <AlertCircle className="w-4 h-4 text-rose-400" />;
       case 'COMMENT':
         return <MessageSquare className="w-4 h-4 text-blue-400" />;
+      case 'AFFECTED_UPVOTE':
+        return <ThumbsUp className="w-4 h-4 text-indigo-400" />;
+      case 'MODERATION':
+        return <ShieldAlert className="w-4 h-4 text-amber-400" />;
       default:
         return <Bell className="w-4 h-4 text-amber-400" />;
     }

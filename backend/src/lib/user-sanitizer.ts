@@ -19,8 +19,14 @@ export type SafeUser = Pick<User, "id" | "email" | "name" | "role" | "createdAt"
  */
 export function sanitizeUser(user: User | null | undefined): SafeUser | null {
   if (!user) return null;
-  const { password, ...safeUser } = user;
-  return safeUser as SafeUser;
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
 }
 
 /**

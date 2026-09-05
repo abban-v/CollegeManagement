@@ -82,7 +82,13 @@ export const POST = withAuth(async (request: NextRequest, _context, session) => 
 
     // Check if it's a DuplicateIssueError
     if (error instanceof DuplicateIssueError) {
-      return sendJSON(errorResponse(error.message, 409));
+      return sendJSON({
+        data: null,
+        error: error.message,
+        status: 409,
+        duplicateOfIssueId: error.duplicateIssueId,
+        duplicateIssueTitle: error.duplicateIssueTitle,
+      });
     }
 
     // Check if it's an InappropriateContentError (inappropriate image)

@@ -19,7 +19,6 @@ import {
   ArrowRight,
   Info,
   Sparkles,
-  Loader2,
   RotateCcw,
 } from 'lucide-react';
 import { triggerQuantumBurst } from '@/lib/quantumBurst';

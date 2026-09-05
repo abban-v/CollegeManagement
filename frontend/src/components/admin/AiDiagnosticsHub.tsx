@@ -20,7 +20,6 @@ import {
   Sparkles,
   Layers,
   Filter,
-  ShieldAlert,
   Terminal,
   Database,
   Building2,

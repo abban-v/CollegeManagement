@@ -16,8 +16,7 @@ import {
   Layers,
   ThumbsUp,
   UserCheck,
-  Flame,
-  Loader2
+  Flame
 } from 'lucide-react';
 import { CampusRadarLoader } from '@/components/ui/CustomLoader';
 import { EmptyStateIllustration } from '@/components/ui/EmptyStateIllustration';

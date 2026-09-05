@@ -5,6 +5,8 @@ export interface APIResponse<T = unknown> {
   data: T | null;
   error: string | null;
   status: number;
+  duplicateOfIssueId?: string | null;
+  duplicateIssueTitle?: string | null;
 }
 
 export function successResponse<T>(data: T, status: number = 200): APIResponse<T> {

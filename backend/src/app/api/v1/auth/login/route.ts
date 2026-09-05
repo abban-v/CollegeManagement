@@ -5,7 +5,6 @@ import bcrypt from "bcryptjs";
 import { getErrorMessage, successResponse, errorResponse, sendJSON, formatZodError } from "@/lib/api";
 import { createSession } from "@/lib/auth";
 import { checkRateLimit, getLoginRateLimitIdentifier } from "@/lib/middleware/rateLimit";
-import { SAFE_USER_SELECT } from "@/lib/user-sanitizer";
 
 /**
  * POST /api/v1/auth/login

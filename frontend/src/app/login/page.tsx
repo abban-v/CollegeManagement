@@ -6,7 +6,6 @@ import Image from 'next/image';
 import { useApp } from '@/lib/store';
 import { apiClient } from '@/lib/api';
 import {
-  ShieldAlert,
   AlertCircle,
   X,
   Lock,
@@ -39,7 +38,6 @@ export default function LoginPage() {
   const router = useRouter();
   const { setUserFromAuthResponse } = useApp();
 
-  const [emailInput, setEmailInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
